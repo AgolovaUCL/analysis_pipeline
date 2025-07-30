@@ -126,7 +126,8 @@ def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include
                 epoch_end = trial_row.iloc[0, 2*e]
 
                 spike_train_this_epoch = [np.int32(el) for el in spike_train if el > frame_rate*epoch_start and el < frame_rate *epoch_end]
-                spike_train_this_epoch = np.array(spike_train_this_epoch)
+                spike_train_this_epoch = np.asarray(spike_train_this_epoch, dtype=int)
+
 
                 # spike plot
                 x_until_now = x[:np.int32(epoch_end*frame_rate)]
@@ -143,8 +144,9 @@ def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include
                 hd_this_epoch_rad = np.deg2rad(hd_this_epoch)
                 counts, _ = np.histogram(hd_this_epoch, bins=bin_edges)
                 bin_idx = np.digitize(hd_this_epoch, bin_edges) - 1  # zero-based index for Python
-                direction_firing_rate = np.divide(counts, occupancy_time, out=np.full_like(counts, np.nan, dtype=float), where=occupancy_time!=0)
 
+                direction_firing_rate = np.divide(counts, occupancy_time, out=np.full_like(counts, np.nan, dtype=float), where=occupancy_time!=0)
+                bin_idx = np.clip(bin_idx, 0, len(direction_firing_rate) - 1)
 
                 # Weigths for the spikes
                 W = direction_firing_rate[bin_idx]
@@ -180,6 +182,7 @@ def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include
                 counter += 1
 
                 # Get cell significance
+                """
                 percentiles_95_value, percentiles_99_value = get_sig_cells(spike_train_this_epoch, hd, epoch_end - epoch_start)
                 # Adding significance data
                 percentiles_95_value, percentiles_99_value = get_sig_cells(spike_train_this_epoch, hd, epoch_end - epoch_start)
@@ -201,6 +204,7 @@ def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include
                     new_element['significant'] = 'sig'
     
                 directional_data_all_units.loc[len(directional_data_all_units)] = new_element
+                """
                                 
         
 
@@ -209,6 +213,8 @@ def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include
             os.makedirs(output_dir)
         output_path = os.path.join(output_dir, f"unit_{unit_id}_spatiotemp.png")
         plt.savefig(output_path)
+        plt.show()
+        breakpoint()
         plt.close(fig)
     
     directional_data_sig_units = directional_data_all_units[directional_data_all_units['significant'] == 'sig']
@@ -222,12 +228,10 @@ def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include
     directional_data_sig_units.to_csv(output_path, index = False)
 
 
-
-
 def spatialheatmap(xycoords, spikes, sync, frame_rate = 30, bin_size=2, sigma=1):
     # Define the spatial bins
-    x_bins = np.arange(np.min(xycoords[0]), np.max(xycoords[0]) + bin_size, bin_size)
-    y_bins = np.arange(np.min(xycoords[1]), np.max(xycoords[1]) + bin_size, bin_size)
+    x_bins = np.arange(np.nanmin(xycoords[0]), np.nanmax(xycoords[0]) + bin_size, bin_size)
+    y_bins = np.arange(np.nanmin(xycoords[1]), np.nanmax(xycoords[1]) + bin_size, bin_size)
 
     # Calculate the occupancy map
     occupancy, _, _ = np.histogram2d(xycoords[0], xycoords[1], bins=[x_bins, y_bins])
@@ -386,7 +390,15 @@ def _complex_mean(alpha, w=None, axis=None, axial_correction=1):
     return ((w * np.exp(1j * alpha * axial_correction)).sum(axis=axis) /
             np.sum(w, axis=axis))
 
-derivatives_base = r"Z:\Eylon\Data\Honeycomb_Maze_Task\derivatives\sub-001_id-2B\ses-05_test\all_trials"
-rawsession_folder = r"Z:\Eylon\Data\Honeycomb_Maze_Task\rawdata\sub-001_id-2B\ses-05_test"
-trials_to_include = [1,2]
+d = input('give the session number ')
+d = int(d)
+if d == 1:
+    derivatives_base = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-01_date-02072025\all_trials"
+    rawsession_folder = r"D:\Spatiotemporal_task\rawdata\sub-002_id-1U\ses-01_date-02072025"
+    trials_to_include = np.arange(1,9)
+elif d == 2:
+    derivatives_base = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-02_date-03072025\all_trials"
+    rawsession_folder = r"D:\Spatiotemporal_task\rawdata\sub-002_id-1U\ses-02_date-03072025"
+    trial_numbers = np.arange(4,10)
+
 make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include, frame_rate = 30, sample_rate = 30000)

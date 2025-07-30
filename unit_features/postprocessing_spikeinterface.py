@@ -8,6 +8,9 @@ import spikeinterface.postprocessing as spost
 import spikeinterface.widgets as sw
 import probeinterface
 import os
+import time
+from scipy.io import savemat
+
 
 from spikeinterface.qualitymetrics import (
     compute_snrs,
@@ -20,23 +23,15 @@ from spikeinterface.comparison import compare_sorter_to_ground_truth
 from probeinterface import Probe, ProbeGroup
 from pathlib import Path
 from tqdm import tqdm
-"""
-So far, plots we definitely want to have:
-- Single waveform plot
-- Autocorrelogram
 
-
-
-
-"""
 
 def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = False, gains = 10, sampling_rate = 30000):
     print("=== Running feature extraction in Spikeinterface ===")
-    recording_path = os.path.join(derivatives_base, "ephys", "concat_run", "preprocessed", "traces_cached_seg0.raw")
-    probe_path =  os.path.join(derivatives_base, "ephys", "concat_run", "preprocessed", "probe.json")
-    kilosort_output_path = os.path.join(derivatives_base, "ephys", "concat_run","sorting", "sorter_output" )
+    recording_path = os.path.join(derivatives_base, "concat_run", "preprocessed", "traces_cached_seg0.raw")
+    probe_path =  os.path.join(derivatives_base, "concat_run", "preprocessed", "probe.json")
+    kilosort_output_path = os.path.join(derivatives_base, "concat_run","sorting", "sorter_output" )
     unit_features_path = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features")
-    spikeinterface_recording_path = os.path.join(derivatives_base, "ephys", "concat_run","sorting", "spikeinterface_recording.json" )
+    spikeinterface_recording_path = os.path.join(derivatives_base, "concat_run","sorting", "spikeinterface_recording.json" )
 
 
     kilosort_output_path = Path(kilosort_output_path)
@@ -51,8 +46,21 @@ def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = F
     with open(spikeinterface_recording_path, "r") as f:
         data = json.load(f)
 
-    gain_to_uV = data["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording_list"][0]["properties"]["gain_to_uV"][0]
-    offset_to_uV = data["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording_list"][0]["properties"]["offset_to_uV"][0]
+
+
+    try:
+        # Format option 1
+        gain_to_uV = data["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording_list"][0]["properties"]["gain_to_uV"][0]
+        offset_to_uV = data["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording_list"][0]["properties"]["offset_to_uV"][0]
+    except (KeyError, IndexError, TypeError):
+        # format option 2
+        parent = data['kwargs']['parent_recording']
+        properties = parent['properties']
+        gain_to_uV = properties['gain_to_uV'][0]
+        offset_to_uV = properties['offset_to_uV'][0]
+
+    print("gain_to_uV:", gain_to_uV)
+    print("offset_to_uV:", offset_to_uV)
 
     # Loading recording data
     print("Loading recording")
@@ -60,12 +68,26 @@ def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = F
         file_paths = recording_path,
         # Info below is found in the json file in the same folder
         sampling_frequency=sampling_rate,
-        dtype = np.int16, 
-        num_channels=384,
+        dtype = np.int16,  
         gain_to_uV=gain_to_uV,
-        offset_to_uV=offset_to_uV
+        offset_to_uV=offset_to_uV,
+        num_channels = 384,
         )
+    total_samples = recording.get_num_frames()
+    sampling_rate = recording.get_sampling_frequency()
+    total_duration_sec = total_samples / sampling_rate
+
+    formatted_time = time.strftime('%H:%M:%S', time.gmtime(total_duration_sec))
+    print(f"Total trial length: {formatted_time}")
     
+    time_output_folder =  os.path.join(derivatives_base, "analysis", "metadata")
+    if not os.path.exists(time_output_folder):
+        os.makedirs(time_output_folder)
+    time_output_path = os.path.join(time_output_folder, "trialduration.txt")
+
+    with open(time_output_path, "w") as f:
+        f.write('%f' % total_duration_sec)
+
     # Loading kilosort data
     print("Loading kilosort data")
     sorting = se.read_kilosort(
@@ -100,30 +122,31 @@ def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = F
         sorting_analyzer.compute(["correlograms", "random_spikes", "waveforms", "templates", "noise_levels"], save=True)
         sorting_analyzer.compute(["spike_amplitudes", "unit_locations", "spike_locations"], save = True)
     
-    
+
     print("Creating dataframes and plots")
-    # save a df with information about the units
+    print("Computing waveform template metrics")
+
     output_folder = os.path.join(unit_features_path,"all_units_overview")
+    output_path = os.path.join(output_folder, "unit_waveform_metrics.csv")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-    output_path = os.path.join(output_folder, "unit_metrics.csv")
+    
+    tm = sorting_analyzer.compute(input="template_metrics")
+    df = pd.DataFrame(tm.data['metrics'])
+    df.insert(0, 'unit_ids', unit_ids)
+    df.insert(1, 'label', labels)
+    df.to_csv(output_path, index=False)
+
+    output_folder = os.path.join(unit_features_path,"all_units_overview")
+    output_path_df = os.path.join(output_folder, "unit_metrics.csv")
     metrics_v2 = compute_quality_metrics(sorting_analyzer, metric_names=["firing_rate", "snr", "amplitude_cutoff", "isi_violation"])
     metrics_v2.insert(0, 'unit_ids', unit_ids)
     metrics_v2.insert(1, 'label', labels)
     desired_columns = ['unit_ids', 'label', 'firing_rate', 'snr', 'amplitude_cutoff',
         'isi_violations_ratio', 'isi_violations_count']
     df = metrics_v2[desired_columns]
-    df.to_csv(output_path, index=False)
+    df.to_csv(output_path_df, index=False)
 
-    print("Computing waveform template metrics")
-    output_folder = os.path.join(unit_features_path,"all_units_overview")
-    output_path = os.path.join(output_folder, "unit_waveform_metrics.csv")
-
-    tm = sorting_analyzer.compute(input="template_metrics")
-    df = pd.DataFrame(tm.data['metrics'])
-    df.insert(0, 'unit_ids', unit_ids)
-    df.insert(1, 'label', labels)
-    df.to_csv(output_path, index=False)
 
     # plotting unit presence
     # all units
@@ -169,18 +192,29 @@ def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = F
     plt.close(fig)
 
     print("Progress plotting waveforms and autocorrelograms for all cells")
+    burst_index_arr = []
+    print('bursty burst')
     for  unit_id in tqdm(unit_ids):
         label = labels[unit_id]
+
         subdir = "good" if label == "good" else "mua"
         output_dir = os.path.join(unit_features_path, "auto_and_wv", subdir)
-        os.makedirs(output_dir, exist_ok=True)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
 
         # Obtaining cell info
         firing_rate = df['firing_rate'].iloc[unit_id]
+
+
         spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
+        if len(spike_train_unscaled) > 1000:
+            spike_train_unscaled = spike_train_unscaled[:int(1e4)]
+            
         spike_train = np.float64(spike_train_unscaled/sampling_rate)
-        if len(spike_train) > 1000:
-            spike_train = spike_train[:int(1e4)]
+        if isinstance(spike_train,  (int, float)):
+            print(f"Unit {unit_id} has 0 or 1 spikes, skipping")
+            burst_index_arr.append(np.nan)
+            continue
 
         # Making plot
         fig, axs = plt.subplots(3, 1, figsize=(8, 10)) 
@@ -231,7 +265,10 @@ def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = F
         save_path = os.path.join(output_dir, filename)
         plt.savefig(save_path)
         plt.close(fig)
+
+       
     print("Spikeinterface tasks completed")
+    return total_duration_sec
 
 
 def interspike_histogram(spkTr1, spkTr2, maxInt):
@@ -274,11 +311,24 @@ def interspike_histogram(spkTr1, spkTr2, maxInt):
         counts, _ = np.histogram(int_matrix.flatten(), bins=bins)
 
     bin_centers = bins[:-1] + binwidth / 2
-
     return bin_centers, counts
 
+def get_burst_index(spike_train):
+    """
+    Formula as described by Royer et al., 2012
+    """
+    bins, cou = interspike_histogram(spike_train, spike_train, 50)
 
-run_from_memory = True
-#derivatives_base = r"Z:\Eylon\Data\Spatiotemporal_Task\derivatives\sub-002_id-1U\ses-01_date-02072025\all_trials"
-derivatives_base = r"Z:\Eylon\Data\Spatiotemporal_Task\derivatives\sub-002_id-1U\ses-01_date-02072025\all_trials"
-postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = False, gains = 10, sampling_rate = 30000)
+    max_peak_10 = np.max(cou[51:61]) # maximum value in first 10 ms
+    mean_val_40_50 = np.mean(cou[90:]) # mean value in 40-50 ms
+
+    burst_index_temp = max_peak_10 - mean_val_40_50
+
+    if burst_index_temp > 0:
+        burst_index = burst_index_temp/max_peak_10
+    elif burst_index_temp < 0:
+        burst_index = burst_index_temp/mean_val_40_50
+    else:
+        burst_index = 0
+
+    return burst_index

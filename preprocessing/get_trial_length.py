@@ -11,20 +11,24 @@ def get_trial_length(session_folder, trials_to_include):
 
     total_trial_length = 0.0
 
-    for i in trials_to_include:
+    trial_numbers = [el - 1 for el in trials_to_include]  # Convert to zero-based index
+
         # obtain run folder
-        pattern = os.path.join(ephys_path, f"run-{i:03d}*")
-        matches = glob.glob(pattern)
+    pattern = os.path.join(ephys_path, f"ses-{2:02d}*")
+    global_matches = glob.glob(pattern)
 
-        dir = matches[0] 
 
-        if len(matches) > 1:
-            print(f"Warning: Multiple directories found for run-{i:03d}. Using the first one: {dir}")
+    for i in range(len(global_matches)):
+        dir = global_matches[i]
+
         if not os.path.isdir(dir):
             print(f"Warning: Directory {dir} does not exist. Skipping this run.")
-            continue
         # get meta file
-        pattern = os.path.join(dir, "*meta*")
+        subfolders = [f for f in os.listdir(dir) if os.path.isdir(os.path.join(dir, f))]
+        subfolder_name = subfolders[0]
+        subfolder_path = os.path.join(dir, subfolder_name)
+
+        pattern = os.path.join(subfolder_path, "*meta*")
         matches = glob.glob(pattern)
         meta_path = matches[0] if matches else None
 
@@ -55,4 +59,6 @@ def get_trial_length(session_folder, trials_to_include):
         except Exception as e:
             print(f"Error reading {meta_path}: {e}")
         # add to total trial length
+    print(total_trial_length)
+  
     return total_trial_length

@@ -1,11 +1,15 @@
 '''
 This script is the main pipeline used for the data analysis
-
+run with python version 12.3
+spikewrap version 0.2.0
+spikeinterface version 0.102.1
+kilosort 4.0.20 (other versions give errors!)
 '''
 import numpy as np
 import os
 import glob
 import time
+from pathlib import Path
 
 from preprocessing.spikewrap import run_spikewrap
 from preprocessing.get_trial_length import get_trial_length
@@ -17,20 +21,49 @@ from unit_features.postprocessing_spikeinterface import postprocessing_spikeinte
 
 task = 'spatiotemporal' # Tasks may be: 'HCT', 'spatiotemporal', or 'basic processing'
 # basic processing preprocesses the data and makes spatial plots
+# For trials_to_exclude, use 1 based indexing!! (so g0 --> t1)
+test = 5
+if test == 0:
+    base_path = r'Z:\Eylon\Data\Honeycomb_Maze_Task' # this folder contains the derivates and rawdata folder
+    subject_number = '001'
+    session_number = '05'
+    trial_session_name = 'all_trials' # Derivatives folder will be called this 
+    trials_to_exclude = []
+elif test == 1:
+    base_path = r'Z:\Eylon\Data\Spatiotemporal_Task' # this folder contains the derivates and rawdata folder
+    subject_number = '002'
+    session_number = '01'
+    trial_session_name = 'all_trials' # Derivatives folder will be called this 
+    trials_to_exclude = [6]
+elif test ==3:
+    base_path = r'Z:\Eylon\Data\Spatiotemporal_Task' # this folder contains the derivates and rawdata folder
+    subject_number = '002'
+    session_number = '03'
+    trial_session_name = 'all_trials' # Derivatives folder will be called this 
+    trials_to_exclude = []
+elif test == 5:
+    base_path = r'D:\Spatiotemporal_task' # this folder contains the derivates and rawdata folder
+    subject_number = '002'
+    session_number = '05'
+    trial_session_name = 'all_trials' # Derivatives folder will be called this 
+    trials_to_exclude = []  
+else:
+    base_path = r'Z:\Eylon\Data\Spatiotemporal_Task' # this folder contains the derivates and rawdata folder
+    subject_number = '002'
+    session_number = '02'
+    trial_session_name = 'all_trials' # Derivatives folder will be called this 
+    trials_to_exclude = [1,2]
 
-"""
-base_path = r'Z:\Eylon\Data\Honeycomb_Maze_Task' # this folder contains the derivates and rawdata folder
-subject_number = '001'
-session_number = '05'
-trial_session_name = 'all_trials' # Derivatives folder will be called this 
+base_path = input('Please give the base path (up until Spatiotemporal task): ')
+base_path = Path(base_path)
+subject_number = input('Please provide the subject number (with zeroes. For example: 002): ')
+session_number = input('Please provide the number of the session (with zeroes, for example 04): ')
+trial_session_name = input('Please provide the name of the trial session: ')
+a=int(input("How many trials to exclude?: "))
 trials_to_exclude = []
-"""
-base_path = r'Z:\Eylon\Data\Spatiotemporal_Task' # this folder contains the derivates and rawdata folder
-subject_number = '002'
-session_number = '01'
-trial_session_name = 'all_trials' # Derivatives folder will be called this 
-trials_to_exclude = [6]
-
+for i in range(a):
+    x=float(input("Input trial to exclude: "))
+    trials_to_exclude.append(x)
 
 # === Finding the subject folder and session name ===
 # === Subject
@@ -74,23 +107,15 @@ n_trials = len(trials_to_include)
 print("\n=== Other session information ==="
       f"\nTrials that we will use: {trials_to_include}")
 
-# Obtaining trial length
-#trial_length = get_trial_length(rawsession_folder, trials_to_include)
-#formatted_time = time.strftime('%H:%M:%S', time.gmtime(trial_length))
-#print(f"Total trial length:      {formatted_time}")
-
 # === Running Spikewrap preprocessing ===
-#run_spikewrap(rawsubject_folder, session_name) ## CHANGE TO PASS OUTPUT TO THIS
+run_spikewrap(derivatives_base, rawsubject_folder, session_name) ## CHANGE TO PASS OUTPUT TO THIS
 
-# Post processing
-postprocessing_spikeinterface(derivatives_base)
+# === Post processing ===
+trial_length = postprocessing_spikeinterface(derivatives_base)
 
 # === Extract unit_features, make pots and classify === 
 # If user_relable = true, change this part so that the user can change it
 
-#plot_wv_and_autocorr(derivatives_base, trial_length)
-# obtain_waveform()  ## do we want this as a seperate plot?
-# get_waveform_characteristics()
 # classify_neurons()
 
 # === Making spatial plots ===

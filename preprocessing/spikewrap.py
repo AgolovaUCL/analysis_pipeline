@@ -4,8 +4,9 @@ Script to run spikewrap
 
 '''
 import spikewrap as sw
+import os
 
-def run_spikewrap(subject_path, session_name):
+def run_spikewrap(derivatives_base, subject_path, session_name):
     """
     Function runs spikewrap
     Input:
@@ -20,12 +21,13 @@ def run_spikewrap(subject_path, session_name):
     Settings are set so that kilosort4 does not do drift correction
     and does not do CAR (common average reference) on the data.
     """
-
+    output_path = os.path.join(derivatives_base, "ephys")
     session = sw.Session(
         subject_path=subject_path,
         session_name=session_name,
         file_format="spikeglx",
         run_names="all",
+        output_path = derivatives_base,
     )
 
     session.preprocess(
@@ -35,7 +37,7 @@ def run_spikewrap(subject_path, session_name):
     )
 
 
-    plots = session.plot_preprocessed(time_range=(0, 0.1), show=True)
+    #plots = session.plot_preprocessed(time_range=(0, 0.1), show=True)
 
     # you could not save here
     session.save_preprocessed(

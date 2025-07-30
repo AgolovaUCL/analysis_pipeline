@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from pathlib import Path
-
+import re
 
 def find_trial_numbers(session_folder, trials_to_exclude):
     """
@@ -17,11 +17,29 @@ def find_trial_numbers(session_folder, trials_to_exclude):
     num_trials: Total number of trials found in the session folder
     trials_to_include: Array of trial numbers to include in the analysis
     """
-    ephys_path = os.path.join(session_folder, 'ephys')
-    num_trials =  sum(1 for p in Path(ephys_path).iterdir() if p.is_dir())
 
-    trials_to_include = np.arange(1, num_trials + 1)
+    ephys_path = os.path.join(session_folder, 'ephys')
+
+    # List all entries in the ephys_path directory
+    folders = os.listdir(ephys_path)
+
+    # Pattern to match: ends with '_g' followed by 1 or 2 digits (e.g., folder_g5, session_g13)
+    pattern = re.compile(r'_g(\d{1,2})$')
+
+    numbers = []
+    for folder in folders:
+        match = pattern.search(folder)
+        if match:
+            numbers.append(int(match.group(1)))
+
+    if numbers:
+        largest = max(numbers)
+        print(f"Largest number: {largest}")
+    else:
+        print("No matching folders found.")
+    last_trial = largest + 1
+    trials_to_include = np.arange(1, last_trial + 1 )
     if trials_to_exclude is not None:
         trials_to_include = np.setdiff1d(trials_to_include, trials_to_exclude)
 
-    return num_trials, trials_to_include
+    return len(trials_to_include), trials_to_include

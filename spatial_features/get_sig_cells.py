@@ -2,16 +2,24 @@ import numpy as np
 import random
 import warnings
 
-def get_sig_cells(spike_train_this_epoch, hd, epoch_dur = 1):
+def get_sig_cells(spike_train_this_epoch, hd, epoch_dur = 1, frame_rate = 30):
     num_shifts = 10000
     shift_min = 2*30
-    shift_max = len(hd) - 20*30
+    shift_max = len(spike_train_this_epoch) - 20*30
     
     MRL_values = []
 
 
     current_data = spike_train_this_epoch
     current_angles = hd
+
+    if np.nanmin(hd) < -np.pi or np.nanmax(hd) > np.pi:
+        hd_rad = np.deg2rad(hd)
+    else:
+        hd_rad = hd
+    occupancy_counts, _ = np.histogram(hd_rad, bins=72, range = [-np.pi, np.pi])
+    occupancy_time = occupancy_counts / frame_rate 
+
 
     for shift_idx in range(num_shifts):
         # Get random shift value
@@ -20,23 +28,30 @@ def get_sig_cells(spike_train_this_epoch, hd, epoch_dur = 1):
         # Add or subtract the random_shift value from each element in the variable
         shifted_data = current_data + random_shift
 
-        range_min = min(current_data)
-        range_max = max(current_data)
-        range_size = range_max - range_min + 1;
+        range_min = np.nanmin(current_data)
+        range_max = np.nanmax(current_data)
+        range_size = range_max - range_min + 1
         
         # Ensure shifted_data stays within the range [range_min, range_max]
         shifted_data = np.mod(shifted_data - range_min, range_size) + range_min
 
         # Calculate angles_degrees and MRL
-        angles_degrees = current_angles[shifted_data]; 
-        angles_radians = np.deg2rad(angles_degrees)
-        MRL = resultant_vector_length(angles_radians)
+        angles_radians= hd_rad[shifted_data]; 
+        mask = ~np.isnan(angles_radians)
+        angles_radians= angles_radians[mask]
+        counts, bin_edges = np.histogram(angles_radians, bins=72,range = [-np.pi, np.pi] )
+        bin_idx = np.digitize(angles_radians, bin_edges) - 1  # zero-based index for Python
 
+        direction_firing_rate = np.divide(counts, occupancy_time, out=np.full_like(counts, np.nan, dtype=float), where=occupancy_time!=0)
+
+        W = direction_firing_rate[bin_idx]
+
+        MRL = resultant_vector_length(angles_radians, w=W)
         MRL_values.append( MRL)
 
     perc_95_val = np.percentile(MRL_values, 95)
     perc_99_val = np.percentile(MRL_values, 99)
-    return perc_95_val, perc_99_val
+    return perc_95_val, perc_99_val, MRL_values
 
 
 def resultant_vector_length(alpha, w=None, d=None, axis=None,
