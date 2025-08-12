@@ -1,19 +1,8 @@
 import subprocess
 import pathlib
 import os
-import sys
-import subprocess
-
-
-#your source directory where the video files are stored
-ROOT_FOLDER = r"Z:\Eylon\Data\Spatiotemporal_Task\rawdata\sub-002_id-1U\ses-05_date-18072025\tracking"
-#your output directory where the inference results will be saved
-OUTPUT_FOLDER = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-05_date-18072025\all_trials\analysis\spatial_behav_data\inference_results"
-
-
+import numpy as np
 """
-RUN THIS WITH YOUR SLEAP CONDA ENVIRONMENT!!!!
-
 this is a quick script that allows you to run your Sleap inference on video files in a directory by calling subprocess. 
 It will create a new folder in the OUTPUT_FOLDER with the same structure as the ROOT_FOLDER and save the inference results there.
 it will save a .slp file but also an .h5 file for further analysis for example with movement (https://movement.neuroinformatics.dev/index.html)
@@ -21,8 +10,10 @@ it will save a .slp file but also an .h5 file for further analysis for example w
 
 -------
 Parameters:
-ROOT_FOLDER: the folder where your video files are stored
-OUTPUT_FOLDER: the folder where you want to save the inference results
+video_folder: the folder where your video files are stored
+dest_folder: the folder where you want to save the inference results
+centroid_model_folder: folder where centroid model is
+centered_model_folder: folder where centered model is
 
 
 call_inference()
@@ -37,18 +28,20 @@ then just open a command line terminal activate the environment and type: python
 """
 
 
-def call_inference_on_all(dest_folder=OUTPUT_FOLDER, ext=".avi"):
+def call_inference_on_all(derivatives_base, rawsession_folder, centroid_model_folder, centered_model_folder,  ext=".avi"):
+    video_folder = os.path.join(rawsession_folder, 'tracking')
+    dest_folder = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'inference_results')
     if not os.path.exists(dest_folder):
         os.makedirs(dest_folder)
-    source_folder = pathlib.Path(ROOT_FOLDER)
+    source_folder = pathlib.Path(video_folder)
     fpaths = list(source_folder.rglob(f"*{ext}"))
     for fpath in fpaths:
         relative_path_parent = fpath.relative_to(source_folder).parent
         dest_path = pathlib.Path(dest_folder) / relative_path_parent
-        call_inference(fpath, dest_path)
+        call_inference(fpath, dest_path, centered_model_folder, centroid_model_folder)
     return fpaths
 
-def call_inference(fpath, dest_folder):
+def call_inference(fpath, dest_folder, centered_model_folder, centroid_model_folder):
     fpath = pathlib.Path(fpath)
     dest_path = dest_folder / f"{fpath.stem}_inference.slp"
     if dest_path.exists():
@@ -57,7 +50,7 @@ def call_inference(fpath, dest_folder):
 
     if fpath.exists():
         print(f"processing: {fpath}")
-        command_inf = f"sleap-track -m \"D:\\Spatiotemporal_task\\derivatives\\sub-002_id-1U\\ses-05_date-18072025\\all_trials\\analysis\\spatial_behav_data\\SLEAP_models\\250731_163959.centroid.n=1377\"  -m \"D:\\Spatiotemporal_task\\derivatives\\sub-002_id-1U\\ses-05_date-18072025\\all_trials\\analysis\\spatial_behav_data\\SLEAP_models\\250801_114358.centered_instance.n=1377\" -o {dest_path}  --tracking.tracker none {fpath}  "
+        command_inf = f"sleap-track -m {centered_model_folder} -m {centroid_model_folder} -o {dest_path}  --tracking.tracker none {fpath}  "
         print(f"{command_inf}")
         subprocess.call(command_inf, shell=True)
         final_dest_path = dest_folder / f"{fpath.stem}.h5"
@@ -67,6 +60,13 @@ def call_inference(fpath, dest_folder):
     else:
         raise FileNotFoundError(f"File {fpath} does not exist. Please check your input.")
 
-if __name__ == "__main__":
 
-    call_inference_on_all()
+trials_to_include = np.arange(1,11)
+derivatives_base = r"Z:\Eylon\Data\Spatiotemporal_Task\derivatives\sub-003_id_2V\ses-01_date-30072025\all_trials"
+rawsession_folder = r"Z:\Eylon\Data\Spatiotemporal_Task\rawdata\sub-003_id_2V\ses-01_date-30072025"
+centroid_model_folder = r"Z:\Eylon\SLEAP_NEWCAMERA_21072025\models\250731_163959.centroid.n=1377"
+centered_model_folder = r"Z:\Eylon\SLEAP_NEWCAMERA_21072025\models\250801_114358.centered_instance.n=1377"
+
+
+call_inference_on_all(derivatives_base, rawsession_folder, centroid_model_folder, centered_model_folder,  ext=".avi")
+

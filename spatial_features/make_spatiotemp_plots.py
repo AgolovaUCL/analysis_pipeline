@@ -41,7 +41,7 @@ def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include
     )
 
     # Load data files
-    kilosort_output_path = os.path.join(derivatives_base, "ephys", "concat_run","sorting", "sorter_output" )
+    kilosort_output_path = os.path.join(derivatives_base, "concat_run","sorting", "sorter_output" )
     sorting = se.read_kilosort(
         folder_path = kilosort_output_path
     )
@@ -81,11 +81,10 @@ def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include
         spike_train = np.round(spike_train_unscaled*frame_rate/sample_rate) # trial data is now in frames in order to match it with xy data
 
         # Unit information
-        unit_firing_rate = 5
         row = df_unit_metrics[df_unit_metrics['unit_ids'] == unit_id]
 
         unit_firing_rate = row['firing_rate'].values[0]
-        #unit_label = row['label'].values[0]
+        unit_label = row['label'].values[0]
 
         unit_label = "TEST"
         # Creating figure
@@ -400,5 +399,8 @@ elif d == 2:
     derivatives_base = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-02_date-03072025\all_trials"
     rawsession_folder = r"D:\Spatiotemporal_task\rawdata\sub-002_id-1U\ses-02_date-03072025"
     trial_numbers = np.arange(4,10)
-
-make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include, frame_rate = 30, sample_rate = 30000)
+elif d== 5:
+    derivatives_base = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-05_date-18072025\all_trials"
+    rawsession_folder = r"D:\Spatiotemporal_task\rawdata\sub-002_id-1U\ses-05_date-18072025"
+    trials_to_include = np.arange(1,11)
+make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include, frame_rate = 25, sample_rate = 30000)

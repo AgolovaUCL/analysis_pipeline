@@ -25,7 +25,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = False, gains = 10, sampling_rate = 30000):
+def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = False,  sampling_rate = 30000):
     print("=== Running feature extraction in Spikeinterface ===")
     recording_path = os.path.join(derivatives_base, "concat_run", "preprocessed", "traces_cached_seg0.raw")
     probe_path =  os.path.join(derivatives_base, "concat_run", "preprocessed", "probe.json")
@@ -139,11 +139,13 @@ def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = F
 
     output_folder = os.path.join(unit_features_path,"all_units_overview")
     output_path_df = os.path.join(output_folder, "unit_metrics.csv")
-    metrics_v2 = compute_quality_metrics(sorting_analyzer, metric_names=["firing_rate", "snr", "amplitude_cutoff", "isi_violation"])
+    # Removed amplitude cutoff because it gave an error
+    #metrics_v2 = compute_quality_metrics(sorting_analyzer, metric_names=["firing_rate", "snr", "amplitude_cutoff", "isi_violation"])
+    metrics_v2 = compute_quality_metrics(sorting_analyzer, metric_names=["firing_rate", "snr", "isi_violation"])
     metrics_v2.insert(0, 'unit_ids', unit_ids)
     metrics_v2.insert(1, 'label', labels)
-    desired_columns = ['unit_ids', 'label', 'firing_rate', 'snr', 'amplitude_cutoff',
-        'isi_violations_ratio', 'isi_violations_count']
+    #desired_columns = ['unit_ids', 'label', 'firing_rate', 'snr', 'amplitude_cutoff', 'isi_violations_ratio', 'isi_violations_count']
+    desired_columns = ['unit_ids', 'label', 'firing_rate', 'snr', 'isi_violations_ratio', 'isi_violations_count']
     df = metrics_v2[desired_columns]
     df.to_csv(output_path_df, index=False)
 
@@ -193,7 +195,6 @@ def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = F
 
     print("Progress plotting waveforms and autocorrelograms for all cells")
     burst_index_arr = []
-    print('bursty burst')
     for  unit_id in tqdm(unit_ids):
         label = labels[unit_id]
 
@@ -332,3 +333,7 @@ def get_burst_index(spike_train):
         burst_index = 0
 
     return burst_index
+
+path = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-05_date-18072025\all_trials"
+path2 = r"D:\Spatiotemporal_task\derivatives\sub-003_id_2V\ses-01_date-30072025\all_trials"
+postprocessing_spikeinterface(path2, run_analyzer_from_memory =True,  sampling_rate = 30000)

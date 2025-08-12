@@ -178,28 +178,9 @@ def plot_polar_histogram(da, bin_width_deg=15, ax=None):
 
     return fig, ax
 
-def run_movement():
-    d = input('give the trial n  umber ')
-    d = int(d)
-    if d == 1:
-        folder_directory = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-01_date-02072025\all_trials\analysis\spatial_behav_data\XY_and_HD\inference_results"
-        output_folder = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-01_date-02072025\all_trials\analysis\spatial_behav_data"
-        trial_numbers = np.arange(1,9)
-        name_structure = '1U_02072025.h5'
-    elif d == 2:
-        folder_directory = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-02_date-03072025\all_trials\analysis\spatial_behav_data\XY_and_HD\inference_results"
-        output_folder = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-02_date-03072025\all_trials\analysis\spatial_behav_data"
-        trial_numbers = np.arange(4,10)
-        name_structure = '_1U_July_3_'
-    elif d== 5:
-        folder_directory = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-05_date-18072025\all_trials\analysis\spatial_behav_data\inference_results"
-        output_folder = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-05_date-18072025\all_trials\analysis\spatial_behav_data"
-        trial_numbers = np.arange(1,11)
-        name_structure = '1U_18072025'
-        
-
-    frame_rate = 30
-    keypoints = ['center', 'right_ear', 'left_ear', 'snout', 'headcap']
+def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
+    folder_directory = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'inference_results')
+    output_folder = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data')
 
 
     if not os.path.exists(output_folder):
@@ -217,13 +198,10 @@ def run_movement():
     if not os.path.exists(trajectory_data_folder):
         os.makedirs(trajectory_data_folder)
 
-    for tr in trial_numbers:
-        if d == 1 or d == 5:
-            file_path = f"{folder_directory}\\T{tr}_{name_structure}.h5"
-        elif d == 2:
-            pattern = os.path.join(folder_directory, f"{name_structure}T{tr}_*.h5")
-            matches = glob.glob(pattern)
-            file_path = matches[0]
+    for tr in trials_to_include:
+        pattern = os.path.join(folder_directory, f"T{tr}_*.h5")
+        matches = glob.glob(pattern)
+        file_path = matches[0]
 
         # --------- Loading data --------
         ds = load_poses.from_sleap_file(file_path, fps=frame_rate)
@@ -363,17 +341,11 @@ def run_movement():
         df = pd.DataFrame({
             "x":              x,
             "y":              y,
-            "hd_forward":    hd_orth_deg,
-            "hd_cap_to_ears":hd_cap_mp_deg,
-            "hd_cap_to_center":     hd_cap_ctr_deg,
-            'x_left_ear': x_le,
-            'y_left_ear': y_le,
-            'x_right_ear': x_re,
-            'y_right_ear': y_re,
+            "hd":    hd_orth_deg,
         })
 
         # save to CSV
-        csv_path = os.path.join(positional_data_folder, f"XY_HD_t{tr}_full.csv")
+        csv_path = os.path.join(positional_data_folder, f"XY_HD_t{tr}.csv")
         df.to_csv(csv_path, index=False)
         print(f"→ Saved positional + HD data to {csv_path}")
         
@@ -396,7 +368,7 @@ def run_movement():
                 s=10,
                 alpha=0.2,
             )
-            ax.set_xlim(150,1550)
+            ax.set_xlim(600,2000)
             ax.set_ylim(1750,250)
             ax.set_aspect('equal', adjustable='box') 
             ax.legend().set_alpha(1)
@@ -406,8 +378,5 @@ def run_movement():
         fig.savefig(output_path)
         fig.show()
 
-        input("Press Enter to close plots...")
+        #input("Press Enter to close plots...")
         plt.close('all')
-
-
-run_movement()

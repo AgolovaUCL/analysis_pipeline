@@ -21,7 +21,8 @@ def run_spikewrap(derivatives_base, subject_path, session_name):
     Settings are set so that kilosort4 does not do drift correction
     and does not do CAR (common average reference) on the data.
     """
-    output_path = os.path.join(derivatives_base, "ephys")
+
+
     session = sw.Session(
         subject_path=subject_path,
         session_name=session_name,
@@ -29,7 +30,7 @@ def run_spikewrap(derivatives_base, subject_path, session_name):
         run_names="all",
         output_path = derivatives_base,
     )
-
+    """
     session.preprocess(
         configs="neuropixels+kilosort2_5",
         per_shank=False,
@@ -45,7 +46,7 @@ def run_spikewrap(derivatives_base, subject_path, session_name):
         n_jobs=1,
         slurm=False
     )
-   
+   """
     cfg = sw.load_config_dict(sw.get_configs_path() / "neuropixels+kilosort2_5.yaml")
     del cfg["sorting"]["kilosort2_5"]
   #  settings = {"n_chan_bin": 384, "nblocks": 0 , "highpass_cutoff": 100}  # nblocks=0 turns off drift correction, I think you can also do it with a "do_correction" (spikeinterface)

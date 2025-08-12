@@ -25,9 +25,6 @@ import pandas as pd
 from scipy.stats import circmean
 from scipy.interpolate import interp1d
 
-
-# %%
-
 def plot_polar_histogram(arr, bin_width_deg=15, ax=None):
     """
     Plot a polar histogram (rose plot) of angle data in radians.
@@ -78,7 +75,6 @@ def plot_polar_histogram(arr, bin_width_deg=15, ax=None):
     return ax
 
 
-# %%
 def interpolate_circular_deg(hd_array, max_gap=60):
     hd_array = np.asarray(hd_array)
     result = hd_array.copy()
@@ -119,118 +115,106 @@ def interpolate_circular_deg(hd_array, max_gap=60):
 
     return result
 
-# %%
-
-#behav_data_path = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-01_date-02072025\all_trials\analysis\spatial_behav_data"
-behav_data_path = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-02_date-03072025\all_trials\analysis\spatial_behav_data"
-
-base_path = os.path.join(behav_data_path, 'XY_and_HD')
-trial_numbers = np.arange(4,10)
-
-for tr in trial_numbers:
-    #df_path = os.path.join(base_path, 'three_hd_methods', f"XY_HD_t{tr}.csv")
-    df_path = os.path.join(base_path, f"XY_HD_t{tr}_full.csv")
-    df = pd.read_csv(df_path)
-
-    hd_forward = df['hd_forward']
-    hd_cap_to_ears = df['hd_cap_to_ears']
-
-    hd_avg_vals = []
-
-    hd_avg_vals = [
-        circmean([f, c], high=180, low=-180) if not np.isnan(f) and not np.isnan(c)
-        else f if not np.isnan(f)
-        else c if not np.isnan(c)
-        else np.nan
-        for f, c in zip(hd_forward, hd_cap_to_ears)
-    ]
-
-    #hd_avg_vals = hd_avg_vals[:8622]
-    x = np.arange(1, len(hd_avg_vals) + 1)
-
-    output_folder = os.path.join(behav_data_path, "hd_over_time")
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-    output_path = os.path.join(output_folder, f"hd_over_time_t{tr}.png")
-    plt.figure(figsize = [8,4])
-    plt.plot(x, hd_avg_vals)
-    plt.savefig(output_path)
-    print(output_path)
+def calculate_HD(derivatives_base, trials_to_include):
+    behav_data_path = os.path.join(derivatives_base, "analysis", "spatial_behav_data")
+    base_path = os.path.join(behav_data_path, "XY_and_HD")
 
 
-    # %%
-    fig, ax = plt.subplots(figsize=(6, 4))
-    plt.scatter(x, hd_avg_vals)
+    for tr in trials_to_include:
+        #df_path = os.path.join(base_path, 'three_hd_methods', f"XY_HD_t{tr}.csv")
+        df_path = os.path.join(base_path, f"XY_HD_t{tr}_full.csv")
+        df = pd.read_csv(df_path)
+
+        hd_forward = df['hd_forward']
+        hd_cap_to_ears = df['hd_cap_to_ears']
+
+        #hd_avg_vals = []
+        """
+        hd_avg_vals = [
+            circmean([f, c], high=180, low=-180) if not np.isnan(f) and not np.isnan(c)
+            else f if not np.isnan(f)
+            else c if not np.isnan(c)
+            else np.nan
+            for f, c in zip(hd_forward, hd_cap_to_ears)
+        ]
+        """
+        hd_avg_vals = hd_forward
+        #hd_avg_vals = hd_avg_vals[:8622]
+        x = np.arange(1, len(hd_avg_vals) + 1)
+
+        output_folder = os.path.join(behav_data_path, "hd_over_time")
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+        output_path = os.path.join(output_folder, f"hd_over_time_t{tr}.png")
+        plt.figure(figsize = [8,4])
+        plt.plot(x, hd_avg_vals)
+        plt.savefig(output_path)
+        print(output_path)
+
+        fig, ax = plt.subplots(figsize=(6, 4))
+        plt.scatter(x, hd_avg_vals)
 
 
-    # %%
-    last_val = 0
-    for i in range(len(hd_avg_vals)):
-        if not np.isnan(hd_avg_vals[i]):
-            last_val = i
-    print(f"Last value: {last_val}, total_length: {len(hd_avg_vals)}")
+        last_val = 0
+        for i in range(len(hd_avg_vals)):
+            if not np.isnan(hd_avg_vals[i]):
+                last_val = i
+        print(f"Last value: {last_val}, total_length: {len(hd_avg_vals)}")
 
-    hd_avg_vals = hd_avg_vals[:last_val]
-    new_x = df['x']
-    new_x = new_x[:last_val]
-    new_y = df['y'][:last_val]
-    new_df = pd.DataFrame({'x': new_x, 'y': new_y, 'hd': hd_avg_vals})
-
+        hd_avg_vals = hd_avg_vals[:last_val]
+        new_x = df['x']
+        new_x = new_x[:last_val]
+        new_y = df['y'][:last_val]
+        new_df = pd.DataFrame({'x': new_x, 'y': new_y, 'hd': hd_avg_vals})
 
 
-    # %%
-    n_nans = np.isnan(hd_avg_vals).sum()
-    print(f"Number of NaNs: {n_nans}")
+        n_nans = np.isnan(hd_avg_vals).sum()
+        print(f"Number of NaNs: {n_nans}")
 
-    if n_nans > 0:  
-        output_path = os.path.join(base_path, f'XY_HD_t{tr}_uninterpolated.csv')
-    else:
+        if n_nans > 0:  
+            output_path = os.path.join(base_path, f'XY_HD_t{tr}_uninterpolated.csv')
+        else:
+            output_path = os.path.join(base_path, f'XY_HD_t{tr}.csv')
+        new_df.to_csv(output_path, index = False)
+        print(output_path)
+
+
+        hd_new = interpolate_circular_deg(hd_avg_vals)
+
+        x = np.arange(1, len(hd_avg_vals) + 1)
+
+        output_folder = os.path.join(behav_data_path, "hd_over_time")
+        output_path = os.path.join(output_folder, f"hd_after_interpolation_t{tr}.png")
+        plt.figure(figsize = [8,4])
+        plt.plot(x, hd_new, c = 'r')
+        plt.plot(x, hd_avg_vals)
+        plt.savefig(output_path)
+        print(output_path)
+
+
+        new_x = df['x']
+        new_x = new_x[:last_val]
+        new_y = df['y'][:last_val]
+        new_df = pd.DataFrame({'x': new_x, 'y': new_y, 'hd': hd_new})
+
         output_path = os.path.join(base_path, f'XY_HD_t{tr}.csv')
-    new_df.to_csv(output_path, index = False)
-    print(output_path)
+        new_df.to_csv(output_path, index = False)
+        print(output_path)
 
+        hd_rad = np.deg2rad(hd_new)
 
-    # %%
-    hd_new = interpolate_circular_deg(hd_avg_vals)
-
-    x = np.arange(1, len(hd_avg_vals) + 1)
-
-    output_folder = os.path.join(behav_data_path, "hd_over_time")
-    output_path = os.path.join(output_folder, f"hd_after_interpolation_t{tr}.png")
-    plt.figure(figsize = [8,4])
-    plt.plot(x, hd_new, c = 'r')
-    plt.plot(x, hd_avg_vals)
-    plt.savefig(output_path)
-    print(output_path)
-
-
-    new_x = df['x']
-    new_x = new_x[:last_val]
-    new_y = df['y'][:last_val]
-    new_df = pd.DataFrame({'x': new_x, 'y': new_y, 'hd': hd_new})
-
-    output_path = os.path.join(base_path, f'XY_HD_t{tr}.csv')
-    new_df.to_csv(output_path, index = False)
-    print(output_path)
-
-    # %%
-    hd_rad = np.deg2rad(hd_new)
-
-    # Plot histogram
-    fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
-    n, bins, _ = ax.hist(hd_rad, bins=24, density=True)  # or bins=36 for 10° bins
-    ax.set_title(f"Head direction distribution trial {tr}")
-    output_folder = os.path.join(behav_data_path, "hd_distribution")
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-    output_path = os.path.join(output_folder, f"hd_distribution_t{tr}.png")
-    fig.savefig(output_path)
+        # Plot histogram
+        fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
+        n, bins, _ = ax.hist(hd_rad, bins=24, density=True)  # or bins=36 for 10° bins
+        ax.set_title(f"Head direction distribution trial {tr}")
+        output_folder = os.path.join(behav_data_path, "hd_distribution")
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+        output_path = os.path.join(output_folder, f"hd_distribution_t{tr}.png")
+        fig.savefig(output_path)
 
 
     
-
-
-# %%
 
 def plot_polar_histogram(arr, bin_width_deg=15, ax=None):
     """
@@ -281,4 +265,5 @@ def plot_polar_histogram(arr, bin_width_deg=15, ax=None):
 
     return ax
 
-
+calculate_HD(r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-05_date-18072025\all_trials",np.arange(1,11))
+ 

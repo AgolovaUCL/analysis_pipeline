@@ -26,7 +26,7 @@ def overlay_video_HD(derivatives_base, rawsession_folder, trials_to_include):
         output_path = os.path.join(output_dir, f"t{tr}_with_HD.avi")
         print(f"Output path for video overlay: {output_path}")
 
-        pattern = f"*T{tr}*"
+        pattern = f"T{tr}_*.avi"
         files = glob.glob(os.path.join(video_data_dir, pattern))
 
         video_path = files[0]
@@ -72,14 +72,3 @@ def do_overlay(video_path, df, output_path):
     out.release()
     cv2.destroyAllWindows()
 
-
-"""
-derivatives_base = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-01_date-02072025\all_trials"
-rawsession_folder = r"D:\Spatiotemporal_task\rawdata\sub-002_id-1U\ses-01_date-02072025"
-trials_to_include = np.arange(1,9)
-"""
-derivatives_base = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-05_date-18072025\all_trials"
-rawsession_folder = r"D:\Spatiotemporal_task\rawdata\sub-002_id-1U\ses-05_date-18072025"
-trials_to_include = np.arange(1,11)
-
-overlay_video_HD(derivatives_base, rawsession_folder, trials_to_include)

@@ -19,6 +19,9 @@ from preprocessing.find_trial_numbers import find_trial_numbers
 from unit_features.postprocessing_spikeinterface import postprocessing_spikeinterface
 #from spatial_features.make_spatiotemp_plots import make_spatiotemp_plots
 
+import sys
+print(sys.version)
+breakpoint()
 task = 'spatiotemporal' # Tasks may be: 'HCT', 'spatiotemporal', or 'basic processing'
 # basic processing preprocesses the data and makes spatial plots
 # For trials_to_exclude, use 1 based indexing!! (so g0 --> t1)
