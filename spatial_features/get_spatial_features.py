@@ -3,6 +3,9 @@ from astropy.convolution import convolve, convolve_fft
 from skimage.draw import disk
 
 def get_spatial_features(derivatives_base):
+    """
+    DOESNT DO ANYTHING YET 
+    """
     x = 4
 
 

@@ -4,7 +4,15 @@ import numpy as np
 
 
 def combine_all_XY_csvs(derivatives_base, trials_to_include):
+    """
+    Combines all data from XY_HD_t{tr}.csv (for tr in trials_to_include) into one csv called HD_XY_alltrials.csv
+    and saves it in the same folder as the XY_HD_t{tr}.csvss
+
+    Input:
+    dervitives_base: path to derivatives folder
+    trials_to_include: our trial numbers
     
+    """
     XY_and_HD_path = os.path.join(derivatives_base, "analysis", "spatial_behav_data", "XY_and_HD")
     
     for tr in trials_to_include:

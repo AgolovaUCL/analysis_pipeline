@@ -1,7 +1,6 @@
 import numpy as np
 from movement.io import load_poses
 import matplotlib.pyplot as plt
-import json
 from scipy.signal import welch
 from movement import sample_data
 from movement.filtering import filter_by_confidence, interpolate_over_time
@@ -179,6 +178,24 @@ def plot_polar_histogram(da, bin_width_deg=15, ax=None):
     return fig, ax
 
 def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
+    """
+    Processing the raw xy data as obtained from running inference.
+    Creates:
+    - XY_HD_t{tr}.csv files with xy position and hd
+    - Plots of the position of keypoints before and after smoothing
+    - Plots with animal trajectory (in animal trajectory folder)
+
+    Steps:
+    1. Filters by confidence
+    2. Interpolates (creates plot)
+    3. Smoothes (creates plot)
+    4. Calculates HD (orthogonal to ears and other methods, though other methods are not used)
+    5. Plots trajecotyr
+    Notes:
+    If camera will be changed, x and y lims for the animal trajecotry plots have to be changed
+    Assumes that the inference data has the format "T{tr}_*.h5'
+    """
+
     folder_directory = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'inference_results')
     output_folder = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data')
 
@@ -240,8 +257,8 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
             x="time", row="keypoints", hue="space", aspect=2, size=2.5
         )
         fig = g.fig
-        #output_path = os.path.join(movement_data_folder , f"t{tr}_keypoints_presmoothing.png")
-        #fig.savefig(output_path, dpi=300, bbox_inches="tight")
+        output_path = os.path.join(movement_data_folder , f"t{tr}_keypoints_presmoothing.png")
+        fig.savefig(output_path, dpi=300, bbox_inches="tight")
         fig.show()
 
         # ---------- Smoothing ----------
@@ -273,6 +290,8 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
         # ==== PLOTTING ===
 
         # compute differences
+        """
+        Not in use: comparing three methods
         diff_f__h = [hd_orth_ears[i] - hd_cap_mp[i] for i in range(len(hd_orth_ears))]
         diff_f__c =  [hd_orth_ears[i] - hd_cap_center[i] for i in range(len(hd_orth_ears))]
         diff_h__c =  [hd_cap_mp[i] - hd_cap_center[i] for i in range(len(hd_orth_ears))]
@@ -313,9 +332,9 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
         plt.tight_layout()
         fig.savefig(output_path)
 
-
+        """
         # Saving x, y, and hd data
-
+        # Getting midpoint between left and right ear
         midpoint_ears = position.sel(keypoints=["left_ear", "right_ear"]).mean(dim="keypoints")
         x_vals = midpoint_ears.sel(space = 'x')
         x =  x_vals.values.flatten()
@@ -323,19 +342,8 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
         y_vals = midpoint_ears.sel(space = 'y')
         y =  y_vals.values.flatten()   
 
+        # HD that we'll be using: orthogonal to xy
         hd_orth_deg     = np.degrees(hd_orth_ears.values if hasattr(hd_orth_ears, "values") else hd_orth_ears)
-        hd_cap_mp_deg   = np.degrees(hd_cap_mp)
-        hd_cap_ctr_deg  = np.degrees(hd_cap_center)
-
-        right_ear = position.sel(keypoints = 'right_ear')
-        right_ear_vals = right_ear.values
-        coords = right_ear_vals.squeeze(-1) 
-        x_re, y_re = coords[:, 0], coords[:, 1]
-
-        left_ear = position.sel(keypoints = 'left_ear')
-        left_ear_vals = left_ear.values
-        coords = left_ear_vals.squeeze(-1) 
-        x_le, y_le = coords[:, 0], coords[:, 1]
 
         # build a pandas DataFrame
         df = pd.DataFrame({
@@ -368,7 +376,7 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
                 s=10,
                 alpha=0.2,
             )
-            ax.set_xlim(600,2000)
+            ax.set_xlim(550,2050)
             ax.set_ylim(1750,250)
             ax.set_aspect('equal', adjustable='box') 
             ax.legend().set_alpha(1)

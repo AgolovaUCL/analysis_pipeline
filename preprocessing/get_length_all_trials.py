@@ -15,7 +15,6 @@ from pathlib import Path
 
 
 
-# %%
 def get_length_all_trials(rawsession_folder, trials_to_include):
     ephys_path = os.path.join(rawsession_folder, 'ephys')
     output_folder = os.path.join(rawsession_folder, "task_metadata")
@@ -89,7 +88,3 @@ def get_length_all_trials(rawsession_folder, trials_to_include):
     trial_length_df.to_csv(output_path, index = False)
     print(f"Saved to {output_path}")
 
-if __name__ == "__main__":
-    derivatives_base = r"D:\Spatiotemporal_task\rawdata\sub-003_id_2V\ses-01_date-30072025"
-    trials_to_include = np.arange(1,11)
-    get_length_all_trials(derivatives_base, trials_to_include)

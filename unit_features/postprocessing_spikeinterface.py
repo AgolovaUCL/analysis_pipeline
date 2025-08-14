@@ -25,7 +25,20 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = False,  sampling_rate = 30000):
+def run_spikeinterface(derivatives_base, run_analyzer_from_memory = False,  sample_rate = 30000):
+    """
+    Runs spikeinterface on the processed data. 
+
+    Inputs:
+    derivatives_base: path to derivatives folder
+    run_analyzer_from_memory: shows whether to run the analyzer from memory or create a new one (default = FAlse)
+    sample_rate: sampling rate of recording (default = 30000)
+
+    Saves:
+    df with waveform metrics
+    df with other unit metrics (firing_rate', 'snr', 'isi_violations_ratio', 'isi_violations_count')
+    
+    """
     print("=== Running feature extraction in Spikeinterface ===")
     recording_path = os.path.join(derivatives_base, "concat_run", "preprocessed", "traces_cached_seg0.raw")
     probe_path =  os.path.join(derivatives_base, "concat_run", "preprocessed", "probe.json")
@@ -47,7 +60,6 @@ def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = F
         data = json.load(f)
 
 
-
     try:
         # Format option 1
         gain_to_uV = data["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording_list"][0]["properties"]["gain_to_uV"][0]
@@ -67,16 +79,16 @@ def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = F
     recording = se.read_binary(
         file_paths = recording_path,
         # Info below is found in the json file in the same folder
-        sampling_frequency=sampling_rate,
+        sampling_frequency=sample_rate,
         dtype = np.int16,  
         gain_to_uV=gain_to_uV,
         offset_to_uV=offset_to_uV,
         num_channels = 384,
         )
+    # Obtaining trial duration
     total_samples = recording.get_num_frames()
     sampling_rate = recording.get_sampling_frequency()
     total_duration_sec = total_samples / sampling_rate
-
     formatted_time = time.strftime('%H:%M:%S', time.gmtime(total_duration_sec))
     print(f"Total trial length: {formatted_time}")
     
@@ -98,7 +110,8 @@ def postprocessing_spikeinterface(derivatives_base, run_analyzer_from_memory = F
     labels = sorting.get_property('KSLabel')
     good_units_ids = [el for el in unit_ids if labels[el] == 'good']
     colour_scheme = ['blue' if labels[el] == 'good' else 'red' for el in unit_ids]
-    colour_scheme_good_units = ['blue' for el in unit_ids if labels[el] == 'good']
+    
+    
     # Loading probe data. Assumes one probe
     probe_group = probeinterface.read_probeinterface(probe_path)
     probe = probe_group.probes[0]   
@@ -314,26 +327,3 @@ def interspike_histogram(spkTr1, spkTr2, maxInt):
     bin_centers = bins[:-1] + binwidth / 2
     return bin_centers, counts
 
-def get_burst_index(spike_train):
-    """
-    Formula as described by Royer et al., 2012
-    """
-    bins, cou = interspike_histogram(spike_train, spike_train, 50)
-
-    max_peak_10 = np.max(cou[51:61]) # maximum value in first 10 ms
-    mean_val_40_50 = np.mean(cou[90:]) # mean value in 40-50 ms
-
-    burst_index_temp = max_peak_10 - mean_val_40_50
-
-    if burst_index_temp > 0:
-        burst_index = burst_index_temp/max_peak_10
-    elif burst_index_temp < 0:
-        burst_index = burst_index_temp/mean_val_40_50
-    else:
-        burst_index = 0
-
-    return burst_index
-
-path = r"D:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-05_date-18072025\all_trials"
-path2 = r"D:\Spatiotemporal_task\derivatives\sub-003_id_2V\ses-01_date-30072025\all_trials"
-postprocessing_spikeinterface(path2, run_analyzer_from_memory =True,  sampling_rate = 30000)

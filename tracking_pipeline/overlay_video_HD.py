@@ -7,6 +7,19 @@ import os
 import glob
 
 def overlay_video_HD(derivatives_base, rawsession_folder, trials_to_include):
+    """
+    Overlays videos with the position of the animal and the head direction
+
+    Inputs:
+    derivatives_base: path to derivatives folder
+    rawsession_folder: path to raw session folder
+    trials_to_include: trials to include in this analysis
+    
+    Notes:
+    Videos must have the format T{trial number}_*.avi (where * denotes that anything can be there)
+    HD is assumed to be in degrees in the dataframes
+    """
+    # Getting data paths
     pos_data_dir = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD')
     if not os.path.exists(pos_data_dir):
         raise FileNotFoundError(f"Positional data directory does not exist: {pos_data_dir}")
@@ -17,8 +30,9 @@ def overlay_video_HD(derivatives_base, rawsession_folder, trials_to_include):
     
     output_dir = os.path.join(derivatives_base, "analysis", "processed_video")
     os.makedirs(output_dir, exist_ok=True)
-    for tr in trials_to_include:
 
+    # Go over all trials
+    for tr in trials_to_include:
         trial_csv_name = f'XY_HD_t{tr}.csv'
         trial_csv_path = os.path.join(pos_data_dir, trial_csv_name)
         df = pd.read_csv(trial_csv_path)
@@ -34,6 +48,17 @@ def overlay_video_HD(derivatives_base, rawsession_folder, trials_to_include):
 
 
 def do_overlay(video_path, df, output_path):
+    """ 
+    Function overlays the video with the head direction and xy position
+
+    Inputs: 
+    video_path: path to original video
+    df: path to df with x, y, and hd data (in that order)
+    output_path: path where video is saved
+
+    Note:
+    Its assumed that df has hd in degrees
+    """
     head_pos_x_col = df.iloc[:, 0].to_numpy()
     head_pos_y_col = df.iloc[:, 1].to_numpy()
     hd_col = df.iloc[:, 2].to_numpy()

@@ -2,24 +2,36 @@ import numpy as np
 import random
 import warnings
 
-def get_sig_cells(spike_train_this_epoch, hd, epoch_dur = 1, frame_rate = 30):
-    num_shifts = 10000
-    shift_min = 2*30
-    shift_max = len(spike_train_this_epoch) - 20*30
+def get_sig_cells(spike_train_this_epoch, hd_rad,epoch_start_frame, epoch_end_frame,  occupancy_time, n_bins = 24, frame_rate = 25, num_shifts = 1000):
+    """
+    Shuffles the data num_shifts time and calculates the MRLs
+
+    Input:
+    spike_train_this_epoch: spike data for unit from one epoch
+    hd_rad: hd array (for the whole trial and in radians!!!)
+    epoch_start_frame: first frame of this epoch
+    epoch_end_frame: last frame of this epoch
+    occupancy_time: histogram of occupancy per hd bin for this epoch
+    num_bins: number of bins for the histogram (default = 24, so 15 degree bins)
+    frame_rate: frame rate of video (default = 25)
+    num_shifts: number of times data is shuffled. Default is 1000 
     
+    """
+    # Setting shift values
+    shift_min = 2*frame_rate # minimum shift: 2 second
+    shift_max = np.int32(epoch_end_frame - epoch_start_frame) - 20*frame_rate # maximum shift: epoch length - 20 s
+    
+    if shift_min > shift_max:
+        shift_max_temp = shift_min
+        shift_min = shift_max
+        shift_max = shift_max_temp
+    if shift_min < 0:
+        shift_min = 0
+
     MRL_values = []
 
 
     current_data = spike_train_this_epoch
-    current_angles = hd
-
-    if np.nanmin(hd) < -np.pi or np.nanmax(hd) > np.pi:
-        hd_rad = np.deg2rad(hd)
-    else:
-        hd_rad = hd
-    occupancy_counts, _ = np.histogram(hd_rad, bins=72, range = [-np.pi, np.pi])
-    occupancy_time = occupancy_counts / frame_rate 
-
 
     for shift_idx in range(num_shifts):
         # Get random shift value
@@ -28,8 +40,8 @@ def get_sig_cells(spike_train_this_epoch, hd, epoch_dur = 1, frame_rate = 30):
         # Add or subtract the random_shift value from each element in the variable
         shifted_data = current_data + random_shift
 
-        range_min = np.nanmin(current_data)
-        range_max = np.nanmax(current_data)
+        range_min = np.int32(epoch_start_frame)
+        range_max = np.int32(epoch_end_frame)
         range_size = range_max - range_min + 1
         
         # Ensure shifted_data stays within the range [range_min, range_max]
@@ -39,14 +51,13 @@ def get_sig_cells(spike_train_this_epoch, hd, epoch_dur = 1, frame_rate = 30):
         angles_radians= hd_rad[shifted_data]; 
         mask = ~np.isnan(angles_radians)
         angles_radians= angles_radians[mask]
-        counts, bin_edges = np.histogram(angles_radians, bins=72,range = [-np.pi, np.pi] )
-        bin_idx = np.digitize(angles_radians, bin_edges) - 1  # zero-based index for Python
 
-        direction_firing_rate = np.divide(counts, occupancy_time, out=np.full_like(counts, np.nan, dtype=float), where=occupancy_time!=0)
+        counts, bin_edges = np.histogram(angles_radians, bins=n_bins,range = [-np.pi, np.pi] )
 
-        W = direction_firing_rate[bin_idx]
+        direction_firing_rate = np.divide(counts, occupancy_time, out=np.full_like(counts, 0, dtype=float), where=occupancy_time!=0)
+        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-        MRL = resultant_vector_length(angles_radians, w=W)
+        MRL = resultant_vector_length(bin_centers, w = direction_firing_rate)
         MRL_values.append( MRL)
 
     perc_95_val = np.percentile(MRL_values, 95)

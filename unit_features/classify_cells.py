@@ -14,14 +14,16 @@ from scipy.cluster.vq import kmeans2
 def classify_cells(derivatives_base):
     """
     Classifies cells into pyramidal and interneurons based on their peak-to-valley time.
+    
     Inputs:
     derivatives_base: path to the base directory containing the analysis results
 
     Returns:
-    
+    None
+
     Notes:
     Function finds unit_waveform_metrics.csv and performs k-means clustering on the peak-to-valley time
-    
+    DOES NOT RETURN A DF OR CLASSIFICATION YET, ONLY PLOT! STILL TO FIX
     """
 
     unit_features_path = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features")
@@ -62,9 +64,3 @@ def classify_cells(derivatives_base):
     plt.title('Cell clustering by peak-to-valley time')
     plt.show()
 
-
-    plt.show()
-
-#derivatives_base = r"Z:\Eylon\Data\Spatiotemporal_Task\derivatives\sub-002_id-1U\ses-01_date-02072025\all_trials"
-derivatives_base =   r"Z:\Eylon\Data\Spatiotemporal_Task\derivatives\sub-002_id-1U\ses-02_date-03072025\all_trials"
-classify_cells(derivatives_base)

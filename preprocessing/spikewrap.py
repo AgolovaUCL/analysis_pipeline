@@ -10,10 +10,11 @@ def run_spikewrap(derivatives_base, subject_path, session_name):
     """
     Function runs spikewrap
     Input:
-    Subject path: 
-    Session name:
+    derivatives_base: path to derivatives folder
+    subject_path: path with ephys data
+    session_name: name of this session
 
-    Output:
+    Creates:
     Binned data (as a raw file)
     Kilosort4 output
 

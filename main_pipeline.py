@@ -1,9 +1,7 @@
 '''
 This script is the main pipeline used for the data analysis
-run with python version 12.3
-spikewrap version 0.2.0
-spikeinterface version 0.102.1
-kilosort 4.0.20 (other versions give errors!)
+Prior to running, install the environment processing-pipeline (as can be found in environment.yml)
+
 '''
 import numpy as np
 import os
@@ -12,16 +10,17 @@ import time
 from pathlib import Path
 
 from preprocessing.spikewrap import run_spikewrap
-from preprocessing.get_trial_length import get_trial_length
-from unit_features.obtain_waveform import obtain_waveform
-from unit_features.plot_wv_and_autocorr import plot_wv_and_autocorr
 from preprocessing.find_trial_numbers import find_trial_numbers
-from unit_features.postprocessing_spikeinterface import postprocessing_spikeinterface
-#from spatial_features.make_spatiotemp_plots import make_spatiotemp_plots
+from unit_features.postprocessing_spikeinterface import run_spikeinterface
+from spatial_features.make_spatiotemp_plots import make_spatiotemp_plots
+from preprocessing.get_length_all_trials import get_length_all_trials
+from unit_features.classify_cells import classify_cells
+from unit_features.plot_spikecount_over_trials import plot_spikecount_over_trials
+from spatial_features.get_spatial_features import get_spatial_features
+from spatial_features.roseplot import make_roseplots
+from tracking_and_video.combine_pos_csvs import combine_pos_csvs
+from spatial_features.plot_ratemaps_and_hd import plot_ratemaps_and_hd
 
-import sys
-print(sys.version)
-breakpoint()
 task = 'spatiotemporal' # Tasks may be: 'HCT', 'spatiotemporal', or 'basic processing'
 # basic processing preprocesses the data and makes spatial plots
 # For trials_to_exclude, use 1 based indexing!! (so g0 --> t1)
@@ -114,17 +113,34 @@ print("\n=== Other session information ==="
 run_spikewrap(derivatives_base, rawsubject_folder, session_name) ## CHANGE TO PASS OUTPUT TO THIS
 
 # === Post processing ===
-trial_length = postprocessing_spikeinterface(derivatives_base)
+trial_length = run_spikeinterface(derivatives_base)
 
-# === Extract unit_features, make pots and classify === 
-# If user_relable = true, change this part so that the user can change it
+# Obtain length for all of the trials, making a csv out of its
+get_length_all_trials(rawsession_folder, trials_to_include)
 
-# classify_neurons()
+# === Classifying neurons ===
+classify_cells(derivatives_base) # Note, it does not return a df yet! Still to fix
 
-# === Making spatial plots ===
-# plot_trajectory()
-# make_rate_maps()
-# make_hd_plots()
+# === Extract spatial data == 
+# Here we get the functions from spatial_processsing_pipeline
+# STILL TO ADD
 
-#if task == 'spatiotemporal':
-    #make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include, n_trials)
+combine_pos_csvs(derivatives_base, trials_to_include)
+
+# === Plot features for neurons and obtain spatial characeristics ===
+# Firing rate over time
+plot_spikecount_over_trials(derivatives_base, rawsession_folder, trials_to_include)
+# TEST THIS FUNCTION AGAIN
+
+
+# Rate map + head direction
+plot_ratemaps_and_hd(derivatives_base)
+
+# Obtain spatial score
+#s WRITE CODE STILL 
+get_spatial_features(derivatives_base) # DOES NOT DO ANYTHING YET
+
+if task == 'spatiotemporal':
+    degrees_df_path, deg = make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include)
+    make_roseplots(derivatives_base, rawsession_folder, trials_to_include, deg, path_to_df = degrees_df_path)
+    
