@@ -2,6 +2,8 @@ import subprocess
 import pathlib
 import os
 import numpy as np
+import json
+import sys
 """
 this is a quick script that allows you to run your Sleap inference on video files in a directory by calling subprocess. 
 It will create a new folder in the OUTPUT_FOLDER with the same structure as the ROOT_FOLDER and save the inference results there.
@@ -62,3 +64,18 @@ def call_inference(fpath, dest_folder, centered_model_folder, centroid_model_fol
     else:
         raise FileNotFoundError(f"File {fpath} does not exist. Please check your input.")
 
+
+def main():
+    data = json.loads(sys.stdin.read())
+    
+    call_inference_on_all(
+        data["derivatives_base"],
+        data["rawsession_folder"],
+        data["centroid_model_folder"],
+        data["centered_model_folder"]
+    )
+
+    print(json.dumps({"status": "done"}))
+
+if __name__ == "__main__":
+    main()

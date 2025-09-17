@@ -20,6 +20,8 @@ from movement.utils.vector import cart2pol, pol2cart
 import os
 import glob
 import pandas as pd
+import json
+import sys
 plt.ion()
 
 def plot_raw_and_smooth_timeseries_and_psd(
@@ -216,6 +218,7 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
         os.makedirs(trajectory_data_folder)
 
     for tr in trials_to_include:
+
         pattern = os.path.join(folder_directory, f"T{tr}_*.h5")
         matches = glob.glob(pattern)
         file_path = matches[0]
@@ -388,3 +391,17 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
 
         #input("Press Enter to close plots...")
         plt.close('all')
+
+
+def main():
+    data = json.loads(sys.stdin.read())
+    
+    run_movement(
+        data["derivatives_base"],
+        data["trials_to_include"]
+    )
+
+    print(json.dumps({"status": "done"}))
+    
+if __name__ == "__main__":
+    main()

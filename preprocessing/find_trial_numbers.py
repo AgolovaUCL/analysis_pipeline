@@ -42,4 +42,4 @@ def find_trial_numbers(session_folder, trials_to_exclude):
     if trials_to_exclude is not None:
         trials_to_include = np.setdiff1d(trials_to_include, trials_to_exclude)
 
-    return len(trials_to_include), trials_to_include
+    return len(trials_to_include), np.array(trials_to_include)

@@ -16,7 +16,7 @@ from pathlib import Path
 
 def plot_spikecount_over_trials(derivatives_base, rawsession_folder,trials_to_include, frame_rate = 25, sample_rate = 30000):
     # Load data files
-    kilosort_output_path = os.path.join(derivatives_base, "ephys", "concat_run","sorting", "sorter_output" )
+    kilosort_output_path = os.path.join(derivatives_base, "concat_run","sorting", "sorter_output" )
     sorting = se.read_kilosort(
         folder_path = kilosort_output_path
     )
@@ -85,5 +85,12 @@ def plot_spikecount_over_trials(derivatives_base, rawsession_folder,trials_to_in
         plt.ylabel("Number of spikes per minute")
         plt.title(f"Unit {unit_id}: Spike count across trials")
         plt.tight_layout()
-        fig.savefig(output_path)
         plt.close()
+        
+    print(f"Plots saved in {output_folder}")
+
+if __name__ == "__main__":
+    derivatives_base = r"D:\Spatiotemporal_task\derivatives\sub-003_id_2V\ses-01_date-30072025\all_trials"
+    rawsession_folder = r"D:\Spatiotemporal_task\rawdata\sub-003_id_2V\ses-01_date-30072025"
+    trials_to_include = np.arange(1,11)
+    plot_spikecount_over_trials(derivatives_base, rawsession_folder, trials_to_include)

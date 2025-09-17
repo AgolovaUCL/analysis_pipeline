@@ -165,26 +165,15 @@ def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include
     if not os.path.exists(pos_data_dir):
         raise FileNotFoundError(f"Positional data directory does not exist: {pos_data_dir}")
     
-    csv_path = glob.glob(os.path.join(rawsession_folder, 'behaviour*.csv'))
-    if len(csv_path) > 0:
-        epoch_times_allcols = pd.read_csv(csv_path[0], header=None)
-    else:
-        excel_path = glob.glob(os.path.join(rawsession_folder, 'behaviour*.xlsx'))
-        if len(excel_path) > 0:
-            epoch_times_allcols = pd.read_excel(excel_path[0], header=None)
-        else:
-            raise FileNotFoundError('No behaviour CSV or Excel file found in the specified folder.')
-
+    csv_path = os.path.join(rawsession_folder, 'task_metadata', 'epoch_times.csv')
+    epoch_times = pd.read_csv(csv_path)
+   
 
     # loading dataframe with unit information
     path_to_df = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features", "all_units_overview","unit_metrics.csv")
     df_unit_metrics = pd.read_csv(path_to_df) 
 
 
-    epoch_times= epoch_times_allcols.iloc[:, [10, 12, 14, 16, 18]]
-    epoch_times.columns = ['epoch 1 end', 'epoch 2 start', 'epoch 2 end', 'epoch 3 start', 'epoch 3 end']
-    epoch_times.insert(0, "epoch 1 start", np.zeros(len(epoch_times)))
-    epoch_times.insert(0,'trialnumber',  trials_to_include)
 
     trials_length_path = os.path.join(rawsession_folder, 'task_metadata', 'trials_length.csv')
     trials_length = pd.read_csv(trials_length_path)

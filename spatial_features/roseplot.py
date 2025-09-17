@@ -1,16 +1,8 @@
-
 import numpy as np
 import os
 import glob
 import pandas as pd
-import spikeinterface.extractors as se
 import matplotlib.pyplot as plt
-from scipy.ndimage import gaussian_filters
-import warnings
-from astropy.stats import circmean
-from astropy.convolution import convolve, convolve_fft
-from skimage.morphology import disk
-import random
 import os
 
 def make_roseplots(derivatives_base, rawsession_folder, trials_to_include, deg: int, path_to_df = None):
@@ -29,17 +21,19 @@ def make_roseplots(derivatives_base, rawsession_folder, trials_to_include, deg: 
     # df path
     if path_to_df is not None:
         df_path = pd.read_csv(path_to_df)
+        print(f"Making roseplot from data from {os.path.basename(path_to_df)}")
     else:
-        df_path_base = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'spatial_features', 'spatial_data', 'directional_tuning')
+        df_path_base = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'spatial_features', 'spatial_data')
         df_options = glob.glob(os.path.join(df_path_base, "directional_tuning*.csv"))
         if len(df_options) == 1:
             df_path = df_options[0]
         else:
-            print(df_options)
+            print([os.path.basename(f) for f in df_options])
             user_input = input('Please provide the number of the file in the list you would like to look at (starting at 1): ')
             user_input = np.int32(user_input)
             df_path = df_options[user_input - 1]
-    print(f"Making roseplot from data from {df_path}")
+            print(f"Making roseplot from data from {os.path.basename(df_options[user_input - 1])}")
+
     df_all = pd.read_csv(df_path)
     df = df_all[df_all['significant'] == 'sig']
 
@@ -53,22 +47,17 @@ def make_roseplots(derivatives_base, rawsession_folder, trials_to_include, deg: 
         if len(excel_path) > 0:
             behaviour_df = pd.read_excel(excel_path[0], header=None)
         else:
-            csv_path = glob.glob(os.path.join(rawsession_folder, 'behaviour*.csv'))
-            if len(csv_path) > 0:
-                behaviour_df = pd.read_csv(csv_path[0], header=None)
-            else:
-                excel_path = glob.glob(os.path.join(rawsession_folder, 'behaviour*.xlsx'))
-                if len(excel_path) > 0:
-                    behaviour_df  = pd.read_excel(excel_path[0], header=None)
-                else:
-                    raise FileNotFoundError('No behaviour CSV or Excel file found in the specified folder.')
+            raise FileNotFoundError('No behaviour CSV or Excel file found in the specified folder.')
         
     # Direction of arms and their angles
     arms_dir = ["N", "NW", "SW", "S", "SE", "NE"]
     arms_angles_start = [30, 90, 150, 210, 270, 330]
 
     # Output path: 
-    output_path_plot = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'spatial_features', 'spatial_plots', 'roseplots', f'roseplot_{deg}_degrees.png')
+    output_folder_plot = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'spatial_features', 'spatial_plots', 'roseplots')
+    if not os.path.exists(output_folder_plot):
+        os.makedirs(output_folder_plot)
+    output_path_plot = os.path.join(output_folder_plot, f'roseplot_{deg}_degrees.png')
  
     # Plot: 3 columns for epochs, final column for correct/incorrect
     fig, axs = plt.subplots(len(trials_to_include), 4, figsize = [3*4, 4*len(trials_to_include)], subplot_kw = {'projection': 'polar'})
@@ -96,7 +85,7 @@ def make_roseplots(derivatives_base, rawsession_folder, trials_to_include, deg: 
                 bin_idx = np.digitize(mean_dir_arr, bin_edges) - 1 
 
                 # Count the number of spikes for each element in bin
-                for i in range(len(bin_edges) - 1):
+                for i in range(len(bin_edges)-1):
                     indices = np.where(bin_idx == i)
                     num_spikes_i = num_spikes_arr[indices]
                     sum_count_bin.append(np.sum(num_spikes_i))
@@ -163,7 +152,10 @@ def make_roseplots(derivatives_base, rawsession_folder, trials_to_include, deg: 
     plt.tight_layout()
     plt.savefig(output_path_plot)
     plt.show()
+    print(f"Saved figure to {output_path_plot}")
 
-
-
-
+if __name__ == "__main__":
+    derivatives_base = r"D:\Spatiotemporal_task\derivatives\sub-003_id_2V\ses-01_date-30072025\all_trials"
+    rawsession_folder = r"D:\Spatiotemporal_task\rawdata\sub-003_id_2V\ses-01_date-30072025"
+    trials_to_include = np.arange(1, 11)
+    make_roseplots(derivatives_base, rawsession_folder, trials_to_include, 15)

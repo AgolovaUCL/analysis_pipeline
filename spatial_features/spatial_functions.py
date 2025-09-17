@@ -1,7 +1,7 @@
 import numpy as np
 import astropy.convolution as cnv
 
-def get_ratemaps(spikes, x, y, n: int, binsize = 15, stddev = 5):
+def get_ratemaps(spikes, x, y, n: int, binsize = 15, stddev = 5, frame_rate = 25):
     """
     Calculate the rate map for given spikes and positions.
 
@@ -22,14 +22,14 @@ def get_ratemaps(spikes, x, y, n: int, binsize = 15, stddev = 5):
     y_bins = np.arange(np.nanmin(y), np.nanmax(y)+ binsize, binsize)
 
     pos_binned, x_edges, y_edges = np.histogram2d(x, y, bins=[x_bins, y_bins])
-    
+    pos_binned = pos_binned/frame_rate
     spikes = [np.int32(el) for el in spikes]
     
     spikes_x = x[spikes]
     spikes_y = y[spikes]
     spikes_binned, _, _ = np.histogram2d(spikes_x, spikes_y, bins=[x_bins, y_bins])
     
-    g = cnv.Box2DKernel(n)
+
     g = cnv.Gaussian2DKernel(stddev, x_size=n, y_size=n)
     g = np.array(g)
     smoothed_spikes =cnv.convolve(spikes_binned, g)

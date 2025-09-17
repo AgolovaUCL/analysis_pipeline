@@ -326,4 +326,3 @@ def interspike_histogram(spkTr1, spkTr2, maxInt):
 
     bin_centers = bins[:-1] + binwidth / 2
     return bin_centers, counts
-

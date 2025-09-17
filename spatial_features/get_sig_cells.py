@@ -18,8 +18,9 @@ def get_sig_cells(spike_train_this_epoch, hd_rad,epoch_start_frame, epoch_end_fr
     
     """
     # Setting shift values
+    spike_train = np.array(spike_train)
     shift_min = 2*frame_rate # minimum shift: 2 second
-    shift_max = np.int32(epoch_end_frame - epoch_start_frame) - 20*frame_rate # maximum shift: epoch length - 20 s
+    shift_max = np.int32(epoch_end_frame - epoch_start_frame) - 2*frame_rate # maximum shift: epoch length - 2 s
     
     if shift_min > shift_max:
         shift_max_temp = shift_min
@@ -33,6 +34,7 @@ def get_sig_cells(spike_train_this_epoch, hd_rad,epoch_start_frame, epoch_end_fr
 
     current_data = spike_train_this_epoch
 
+    
     for shift_idx in range(num_shifts):
         # Get random shift value
         random_shift = random.randint(shift_min, shift_max)

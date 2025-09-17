@@ -5,7 +5,7 @@ import pandas as pd
 import spikeinterface.extractors as se
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from spatial_functions import get_ratemaps
+from .spatial_functions import get_ratemaps
 
 def plot_ratemaps_and_hd(derivatives_base, frame_rate = 25, sample_rate = 30000):
     """ 
@@ -32,13 +32,16 @@ def plot_ratemaps_and_hd(derivatives_base, frame_rate = 25, sample_rate = 30000)
     
     # output folder
     output_folder = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'spatial_features', 'spatial_plots', 'ratemaps_and_hd')
-    
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+        
+        
     # Loop over units
     for unit_id in tqdm(unit_ids):
         # Load spike data
         spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
         spike_train = np.round(spike_train_unscaled*frame_rate/sample_rate) # trial data is now in frames in order to match it with xy data
-
+        spike_train = [np.int32(el) for el in spike_train if el < len(x)]  # Ensure spike train is within bounds of x and y
         # Make plot
         fig, axs = plt.subplots(1, 2, figsize = [8, 4])
         axs = axs.flatten()
@@ -48,7 +51,7 @@ def plot_ratemaps_and_hd(derivatives_base, frame_rate = 25, sample_rate = 30000)
         # Plot ratemap
         rmap, x_edges, y_edges = get_ratemaps(spike_train, x, y, 3, binsize=25, stddev=5)
             
-        axs[0].imshow(rmap.T, 
+        im = axs[0].imshow(rmap.T, 
                 cmap='viridis', 
                 interpolation = None,
                 origin='lower', 
@@ -59,6 +62,7 @@ def plot_ratemaps_and_hd(derivatives_base, frame_rate = 25, sample_rate = 30000)
         axs[0].set_xlim(550, 2050)
         axs[0].set_ylim(1750, 250)
         axs[0].set_aspect('equal')
+        fig.colorbar(im, ax=axs[0], label='Firing rate')
 
         # Plot HD
         # Obtaining hd for this epoch and calculating how much the animal sampled in each bin
@@ -76,7 +80,9 @@ def plot_ratemaps_and_hd(derivatives_base, frame_rate = 25, sample_rate = 30000)
 
         # Calculating directional firing rate
         direction_firing_rate = np.divide(counts, occupancy_time, out=np.full_like(counts, 0, dtype=float), where=occupancy_time!=0)
-        
+        fig.delaxes(axs[1])
+        axs[1] = fig.add_subplot(1,2,2, polar=True)
+
         # Plotting
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
         width = np.diff(bin_centers)[0]
@@ -91,7 +97,13 @@ def plot_ratemaps_and_hd(derivatives_base, frame_rate = 25, sample_rate = 30000)
         output_path = os.path.join(output_folder, f"unit_{unit_id}_rm_hd.png")
         plt.savefig(output_path)
         plt.close()
+    print(f"Saved plots to {output_folder}")
+        
+        
+
+if __name__ == "__main__":
+    derivatives_base = r"D:\Spatiotemporal_task\derivatives\sub-003_id_2V\ses-01_date-30072025\all_trials"
+    plot_ratemaps_and_hd(derivatives_base)
 
 
 
-    

@@ -9,17 +9,8 @@ import matplotlib.pyplot as plt
 
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-import sys
-if os.name == 'nt':
-    sys.path.append('C:/Users/Jake/Documents/python_code/robot_maze_analysis_code')
-else:
-    sys.path.append('/home/jake/Documents/python_code/robot_maze_analysis_code')
-
-from utilities.get_directories import get_data_dir, get_robot_maze_directory
-from position.calculate_pos_and_dir import get_goal_coordinates
 from utilities.load_and_save_data import load_pickle, save_pickle
-from behaviour.load_behaviour import get_behaviour_dir
-from position.calculate_pos_and_dir import get_directions_to_position, get_relative_directions_to_position
+from calculate_pos_and_dir import get_directions_to_position, get_relative_directions_to_position
 
 cm_per_pixel = 0.2
 
@@ -269,8 +260,7 @@ def get_relative_direction_occupancy_by_position(dlc_data, limits):
     # get the head direction data
     hd = dlc_data['hd']
 
-    # get the durations
-    durations = dlc_data['durations']
+
 
     for i in range(np.max(x_bin)+1):
         for j in range(np.max(y_bin)+1):
@@ -283,7 +273,7 @@ def get_relative_direction_occupancy_by_position(dlc_data, limits):
 
             # get the head directions and durations for these indices
             hd_temp = hd[indices]
-            durations_temp = durations[indices]
+
 
             # loop through possible consink positions
             for i2, x_sink in enumerate(x_sink_pos):
@@ -294,7 +284,9 @@ def get_relative_direction_occupancy_by_position(dlc_data, limits):
                     
                     # get the relative direction
                     relative_direction = get_relative_directions_to_position(directions, hd_temp)
-                    
+                    durations_temp = np.ones(len(relative_direction)) #NOTE: Jake's code used durations data from DLC.
+                    #We don't use that, each frame is equally long, so we replace all durations with 1 (meaning each frame has length 1)
+
                     # get the directional occupancy for these indices
                     directional_occupancy, direction_bins = \
                         get_directional_occupancy(relative_direction, durations_temp, n_bins=12)
@@ -546,7 +538,7 @@ def bin_directions(directions, direction_bins):
     return counts, bin_indices
 
 
-def get_directional_occupancy(directions, durations, n_bins=24):
+def get_directional_occupancy(directions, durations, n_bins=12):
 
     # create 24 bins, each 15 degrees
     direction_bins_og = np.linspace(-np.pi, np.pi, n_bins+1)
