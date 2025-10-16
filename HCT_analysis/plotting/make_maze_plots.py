@@ -6,7 +6,8 @@ import pandas as pd
 import matplotlib.patches as mpatches
 from matplotlib import cm
 import matplotlib
-
+from matplotlib.colors import LinearSegmentedColormap
+matplotlib.use('Qt5Agg') 
 def plot_startplatforms(derivatives_base, rawsession_folder, goal_platforms):
     """
     Shows a maze plot with all the start platforms
@@ -78,11 +79,11 @@ def plot_occupancy(derivatives_base, rawsession_folder, goal_platforms):
     # 3 x 1 subplot
     fig, ax = plt.subplots(1, 3, figsize=(18,6))
     ax = ax.flatten()
-
+    fig.suptitle("Frequency of visit per platform")
     hcoord, vcoord, hcoord_rotated, vcoord_rotated = get_coords()
-    
-    cmap = matplotlib.colormaps['RdYlGn']
-    
+
+    #cmap = matplotlib.colormaps['RdYlGn']
+    cmap = plt.cm.RdYlGn
     # Go through goals and all trials
     for g in [0,1,2]: # g = 0: goal 1, g = 1: goal 2, g = 2: all trials
         if g == 0:
@@ -105,11 +106,21 @@ def plot_occupancy(derivatives_base, rawsession_folder, goal_platforms):
         
         # Add some coloured hexagons and adjust the orientation to match the rotated grid
         for i, (x, y) in enumerate(zip(hcoord_rotated, vcoord_rotated)):
-            colour = cmap(occupancy_norm[i])  # Map normalized occupancy to colormap
+            if occupancy[i] > 0:
+                colour = cmap(occupancy_norm[i])  # Map normalized occupancy to colormap
+            else:
+                colour = "grey"
+            if (g < 2 and i + 1 == goal_platforms[g]) or (g == 2 and i + 1 in goal_platforms):
+                    edgecolor = "blue"
+                    linewidth = 5
+            else:
+                edgecolor = "k"
+                linewidth = 1
+            text = occupancy[i] if occupancy[i] > 0 else " "
             hex = RegularPolygon((x, y), numVertices=6, radius=2. / 3.,
                                 orientation=np.radians(60),  # Rotate hexagons to align with grid
-                                facecolor=colour, alpha=0.2, edgecolor='k')
-            ax[g].text(x, y, occupancy[i],  ha='center', va='center', size=15)  # Start numbering from 1
+                                facecolor=colour, alpha=0.2, edgecolor=edgecolor, linewidth= linewidth)
+            ax[g].text(x, y, text,  ha='center', va='center', size=15)  # Start numbering from 1
             ax[g].add_patch(hex)
             # Also add scatter points in hexagon centres
         ax[g].scatter(hcoord, vcoord, alpha=0, c = 'grey')
@@ -136,6 +147,7 @@ def plot_propcorrect(derivatives_base, rawsession_folder, goal_platforms):
 
     # 3 x 1 subplot
     fig, ax = plt.subplots(1, 3, figsize=(18,6))
+    fig.suptitle("Proportion correct per platform and for each trial section")
     ax = ax.flatten()
 
     # coordinates
@@ -155,7 +167,7 @@ def plot_propcorrect(derivatives_base, rawsession_folder, goal_platforms):
         else:
             df_g = df
             title = "Full trials"
-
+                
         prop_correct_arr = []
         
         for plat in np.arange(1, 62):
@@ -176,10 +188,16 @@ def plot_propcorrect(derivatives_base, rawsession_folder, goal_platforms):
             else:
                 colour = cmap(prop_correct_arr[i])  # Map normalized occupancy to colormap
                 text = np.round(prop_correct_arr[i], 1)
+            if (g < 2 and i + 1 == goal_platforms[g]) or (g == 2 and i + 1 in goal_platforms):
+                edgecolor = "blue"
+                linewidth = 5
+            else:
+                edgecolor = "k"
+                linewidth = 1
                 
             hex = RegularPolygon((x, y), numVertices=6, radius=2. / 3.,
                                 orientation=np.radians(60),  # Rotate hexagons to align with grid
-                                facecolor=colour, alpha=0.2, edgecolor='k')
+                                facecolor=colour, alpha=0.2, edgecolor=edgecolor, linewidth=linewidth)
             ax[g].text(x, y, text,  ha='center', va='center', size=15)  # Start numbering from 1
             ax[g].add_patch(hex)
             # Also add scatter points in hexagon centres

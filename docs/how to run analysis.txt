@@ -1,0 +1,30 @@
+Steps
+
+1. Copy data from downstairs to ceph and then onto computer
+
+2. Check that the computer has enough space to run the analysis.
+ 
+3. Check that data structure is correct:
+- tracking, ephys, and behaviour folder are present
+- behaviour folder has the rat{id}_alltrials.csv file and all the trial files (HCT) or the maze behaviour file (spatiotemporal)
+- within the ephys files, all names have a logical structure
+
+4. From ephys and tracking, move the data that shouldn't be included in the analysis into a separate folder (I usually call it ignore). (otherwise this data will be batched in spikewrap).
+
+5. If more than 10 trials are present, change the naming to be zero padded in ephys (ie g1 --> g01, g0 --> g00). (NOTE: this may not be needed in later versions of spikewrap, but it currently is). 
+
+6. Run main_pipeline.py with the processing_pipeline interprete (NOTE, recently 'conda run --name processing_pipeline python scriptpath.py' hasn't been working for me, so I just run 'python scriptpath.py' instead).
+
+7. When main_pipeline has started running, verify that the batching is done in the correct order in spikewrap (it will show an output). 
+
+8. In the meanwhile, run run_inference_inSleapEnv.py in your sleap environment (sleap_new for Sophia, sleap for Eylon). This can be done in parallel. I recommend setting all_trials to False, which computes this just for the first trial (then you can verify whether the model is good enough). 
+Note: I tried to combine the code so that SLEAP and movement environments can be run in one script. It was working, but not anymore... so hence why we need to run some script separately for it. 
+
+9. If you want verify whether the SLEAP model is good, go to Anaconda Prompt and type in conda activate {name of your sleap environment). Then type in movement launch and if it prompts you, select napari-video. Then go to File >> Open File and select a video that you just ran inference on. Then on the right, der Load tracked data select SLEAP, 25 fps, and then then the path to the h5 file (should be in XY_and_HD\inference_results). If results don't look great, it means the SLEAP model needs to be trained more. 
+
+10. run spatial_processing_pipeline_oneInterpreter.py. Again, you can just do this for one trial (set trials_to_include to [1] for example). Overlaying the video takes around 10 minutes usually, so doing one can help speed up the process to see how it is. 
+Inspect movement results in analysis\spatial_behav_data\movement_plots to see how good the confidence is.
+ Inspect the overlayed video in analysis\processed_video to see how good that is. If you were happy with the overlay in the movement GUI but not in the one here, it means that some processing in run_movement has  be adjusted (for example, the smoothing). Play with that and try again until you're happy. 
+
+11. If you're happy with the results of the overlay, repeat step 8 and 10 for all the trials (if you haven't done so yet). 
+

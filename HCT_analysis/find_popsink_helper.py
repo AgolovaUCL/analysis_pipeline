@@ -2,7 +2,7 @@ import numpy as np
 from calculate_pos_and_dir import get_directions_to_position, get_relative_directions_to_position 
 from calculate_occupancy import get_directional_occupancy
 
-def get_relative_direction_occupancy_by_plat(pos_xy, hd,  candidate_sinks):
+def get_relative_direction_occupancy_by_plat(x, y, hd,  candidate_sinks):
     '''
     APPENDED FOR POP SINK CODE
     output is a y, x, y, x, n_bins array.
@@ -21,11 +21,6 @@ def get_relative_direction_occupancy_by_plat(pos_xy, hd,  candidate_sinks):
 
     reldir_occ_by_plat = np.zeros((61, n_y_sinks, n_x_sinks, n_dir_bins))
     
-    # get x and y data
-
-    x = pos_xy['x']
-    y = pos_xy['y']
-
 
     for p in range(61):
         x_positions = x[p]
@@ -56,3 +51,26 @@ def get_relative_direction_occupancy_by_plat(pos_xy, hd,  candidate_sinks):
                 reldir_occ_by_plat[p, j2, i2, :] = directional_occupancy
 
     return reldir_occ_by_plat
+
+
+def rel_dir_ctrl_distribution_all_sinks(x, y, hd,  nspikes, candidate_sinks, candidate_sinks):
+    """
+    For a given unit, produces relative direction occupancy distributions 
+    for each candidate consink position based on the number of spikes fired 
+    at each positional bin. 
+    """
+
+    rel_dir_ctrl_dist = np.zeros((len(candidate_sinks['y']), len(candidate_sinks['x']), len(direction_bins) -1))
+
+    # loop through the x and y bins    
+    n_spikes_total = 0
+
+    for p in range(61):
+            n_spikes_p = nspikes[p]
+            if n_spikes_p == 0:
+                continue
+            n_spikes_total = n_spikes_total + n_spikes_p
+
+            rel_dir_ctrl_dist = rel_dir_ctrl_dist + reldir_occ_by_pos[j,i,:,:,:] * n_spikes_p
+
+    return rel_dir_ctrl_dist, n_spikes_total

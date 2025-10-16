@@ -68,6 +68,10 @@ def do_overlay(video_path, df, output_path):
     out = cv2.VideoWriter(output_path, fourcc, 20.0, (int(cap.get(3)), int(cap.get(4))))
 
     frame_idx = 0
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # total frame count
+
+    pbar = tqdm(total=total_frames)
+    
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -92,8 +96,17 @@ def do_overlay(video_path, df, output_path):
 
         out.write(frame)
         frame_idx += 1
+        pbar.update(1)
+    pbar.close()
 
     cap.release()
     out.release()
     cv2.destroyAllWindows()
 
+
+if __name__ == "__main__":
+    derivatives_base = r"C:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
+    rawsession_folder = r"C:\Honeycomb_maze_task\rawdata\sub-002_id-1R\ses-01_date-10092025"
+    trials_to_include = [1]
+    overlay_video_HD(derivatives_base, rawsession_folder, trials_to_include)
+        

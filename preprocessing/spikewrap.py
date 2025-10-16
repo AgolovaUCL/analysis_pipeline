@@ -32,7 +32,7 @@ def run_spikewrap(derivatives_base, subject_path, session_name):
         run_names="all",
         output_path = derivatives_base,
     )
-    """
+
     session.preprocess(
         configs="neuropixels+kilosort2_5",
         per_shank=False,
@@ -48,7 +48,7 @@ def run_spikewrap(derivatives_base, subject_path, session_name):
         n_jobs=1,
         slurm=False
     )
-    """
+
     
     # Parameters for running kilosort
     do_CAR = False

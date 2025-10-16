@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import pandas as pd
-from create_intervals import create_intervals_df
+from utilities.create_intervals import create_intervals_df
 
 def restrict_spiketrain(spike_train, rawsession_folder, goal: int):
     """
@@ -11,11 +11,13 @@ def restrict_spiketrain(spike_train, rawsession_folder, goal: int):
     Args:
         spike_train (array): spike times of cell in seconds
         rawsession_folder (str): path to the raw session folder
-        goal (int, optional): goal number.
+        goal (int, optional): goal number (1 or 2)
 
     Returns:
         spike times in seconds but only within the intervals
     """
+    if goal not in (1,2):
+        raise ValueError("Goal must be 1 or 2") 
     path = os.path.join(rawsession_folder, "task_metadata", f"goal_{goal}_intervals.csv")
     
     if not os.path.exists(path):

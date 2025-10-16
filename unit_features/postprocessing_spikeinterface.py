@@ -25,13 +25,14 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-def run_spikeinterface(derivatives_base, run_analyzer_from_memory = False,  sample_rate = 30000):
+def run_spikeinterface(derivatives_base, run_analyzer_from_memory = False, run_df_from_memory = False,  sample_rate = 30000):
     """
     Runs spikeinterface on the processed data. 
 
     Inputs:
     derivatives_base: path to derivatives folder
     run_analyzer_from_memory: shows whether to run the analyzer from memory or create a new one (default = FAlse)
+    run_analyzer_from_memory: whether to create the two dfs with unit features or run from memory
     sample_rate: sampling rate of recording (default = 30000)
 
     Saves:
@@ -59,17 +60,23 @@ def run_spikeinterface(derivatives_base, run_analyzer_from_memory = False,  samp
     with open(spikeinterface_recording_path, "r") as f:
         data = json.load(f)
 
-
+    # The path to the data for some reason keeps changing in different versions of spikeinterface
+    # If this format doesn't work, feed the file into chatGPT and then ask it to find the path. 
+    # Note that gain_to_uV and offset_to_uV are lists, so we take the first element
     try:
         # Format option 1
         gain_to_uV = data["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording_list"][0]["properties"]["gain_to_uV"][0]
         offset_to_uV = data["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording"]["kwargs"]["recording_list"][0]["properties"]["offset_to_uV"][0]
     except (KeyError, IndexError, TypeError):
-        # format option 2
-        parent = data['kwargs']['parent_recording']
-        properties = parent['properties']
-        gain_to_uV = properties['gain_to_uV'][0]
-        offset_to_uV = properties['offset_to_uV'][0]
+        try: # format option 2
+            parent = data['kwargs']['parent_recording']
+            properties = parent['properties']
+            gain_to_uV = properties['gain_to_uV'][0]
+            offset_to_uV = properties['offset_to_uV'][0]
+        except (KeyError, IndexError, TypeError):
+            # Format option 3
+            gain_to_uV = data["properties"]["gain_to_uV"][0]
+            offset_to_uV = data["properties"]["offset_to_uV"][0]
 
     print("gain_to_uV:", gain_to_uV)
     print("offset_to_uV:", offset_to_uV)
@@ -135,76 +142,81 @@ def run_spikeinterface(derivatives_base, run_analyzer_from_memory = False,  samp
         sorting_analyzer.compute(["correlograms", "random_spikes", "waveforms", "templates", "noise_levels"], save=True)
         sorting_analyzer.compute(["spike_amplitudes", "unit_locations", "spike_locations"], save = True)
     
+    if not run_df_from_memory:
+        print("Creating dataframes and plots")
+        print("Computing waveform template metrics")
 
-    print("Creating dataframes and plots")
-    print("Computing waveform template metrics")
+        output_folder = os.path.join(unit_features_path,"all_units_overview")
+        output_path = os.path.join(output_folder, "unit_waveform_metrics.csv")
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+        
+        tm = sorting_analyzer.compute(input="template_metrics")
+        df = pd.DataFrame(tm.data['metrics'])
+        df.insert(0, 'unit_ids', unit_ids)
+        df.insert(1, 'label', labels)
+        df.to_csv(output_path, index=False)
 
-    output_folder = os.path.join(unit_features_path,"all_units_overview")
-    output_path = os.path.join(output_folder, "unit_waveform_metrics.csv")
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-    
-    tm = sorting_analyzer.compute(input="template_metrics")
-    df = pd.DataFrame(tm.data['metrics'])
-    df.insert(0, 'unit_ids', unit_ids)
-    df.insert(1, 'label', labels)
-    df.to_csv(output_path, index=False)
-
-    output_folder = os.path.join(unit_features_path,"all_units_overview")
-    output_path_df = os.path.join(output_folder, "unit_metrics.csv")
-    # Removed amplitude cutoff because it gave an error
-    #metrics_v2 = compute_quality_metrics(sorting_analyzer, metric_names=["firing_rate", "snr", "amplitude_cutoff", "isi_violation"])
-    metrics_v2 = compute_quality_metrics(sorting_analyzer, metric_names=["firing_rate", "snr", "isi_violation"])
-    metrics_v2.insert(0, 'unit_ids', unit_ids)
-    metrics_v2.insert(1, 'label', labels)
-    #desired_columns = ['unit_ids', 'label', 'firing_rate', 'snr', 'amplitude_cutoff', 'isi_violations_ratio', 'isi_violations_count']
-    desired_columns = ['unit_ids', 'label', 'firing_rate', 'snr', 'isi_violations_ratio', 'isi_violations_count']
-    df = metrics_v2[desired_columns]
-    df.to_csv(output_path_df, index=False)
-
-
-    # plotting unit presence
-    # all units
-    widget = sw.plot_unit_presence(sorting) 
-    output_path = os.path.join(unit_features_path,"all_units_overview", "unit_presence_all_units.png")
-    fig = widget.figure
-    fig.suptitle("Unit presence over time (all units)")
-    plt.savefig(output_path)
-    plt.close(fig)
+        output_folder = os.path.join(unit_features_path,"all_units_overview")
+        output_path_df = os.path.join(output_folder, "unit_metrics.csv")
+        # Removed amplitude cutoff because it gave an error
+        #metrics_v2 = compute_quality_metrics(sorting_analyzer, metric_names=["firing_rate", "snr", "amplitude_cutoff", "isi_violation"])
+        metrics_v2 = compute_quality_metrics(sorting_analyzer, metric_names=["firing_rate", "snr", "isi_violation"])
+        metrics_v2.insert(0, 'unit_ids', unit_ids)
+        metrics_v2.insert(1, 'label', labels)
+        #desired_columns = ['unit_ids', 'label', 'firing_rate', 'snr', 'amplitude_cutoff', 'isi_violations_ratio', 'isi_violations_count']
+        desired_columns = ['unit_ids', 'label', 'firing_rate', 'snr', 'isi_violations_ratio', 'isi_violations_count']
+        df = metrics_v2[desired_columns]
+        df.to_csv(output_path_df, index=False)
 
 
-    # Plotting unit locations
-    # all units
-    output_path = os.path.join(unit_features_path,"all_units_overview", "unit_location_all_units.png")
-    widget = sw.plot_unit_locations(sorting_analyzer, unit_colors = colour_scheme, figsize=(8, 16))
-    fig = widget.figure
-    ax = fig.axes[0]
-    ax.set_xlim(-200, 200)     
-    ax.set_ylim(0, 4000)      
-    ax.set_title("Unit location (all units)")
-    plt.savefig(output_path)
-    plt.close(fig)
+        # plotting unit presence
+        # all units
+        widget = sw.plot_unit_presence(sorting) 
+        output_path = os.path.join(unit_features_path,"all_units_overview", "unit_presence_all_units.png")
+        fig = widget.figure
+        fig.suptitle("Unit presence over time (all units)")
+        plt.savefig(output_path)
+        plt.close(fig)
 
-    output_path = os.path.join(unit_features_path,"all_units_overview", "unit_depth_all_units.png")
-    widget = sw.plot_unit_depths(sorting_analyzer, unit_colors = colour_scheme, figsize=(8, 16))
-    fig = widget.figure
-    ax = fig.axes[0]
-    ax.set_xlim(-200, 200)      
-    ax.set_ylim(0, 4000)       
-    ax.set_title("Unit depth")
-    plt.savefig(output_path)
-    plt.close(fig)
 
-    # good units
-    output_path = os.path.join(unit_features_path,"all_units_overview", "unit_location_good_units.png")
-    widget = sw.plot_unit_locations(sorting_analyzer, unit_ids = good_units_ids,  figsize=(8, 16))
-    fig = widget.figure
-    ax = fig.axes[0]
-    ax.set_xlim(-200, 200)      
-    ax.set_ylim(0, 4000)      
-    ax.set_title("Unit location (good units)")
-    plt.savefig(output_path)
-    plt.close(fig)
+        # Plotting unit locations
+        # all units
+        output_path = os.path.join(unit_features_path,"all_units_overview", "unit_location_all_units.png")
+        widget = sw.plot_unit_locations(sorting_analyzer, unit_colors = colour_scheme, figsize=(8, 16))
+        fig = widget.figure
+        ax = fig.axes[0]
+        ax.set_xlim(-200, 200)     
+        ax.set_ylim(0, 4000)      
+        ax.set_title("Unit location (all units)")
+        plt.savefig(output_path)
+        plt.close(fig)
+
+        output_path = os.path.join(unit_features_path,"all_units_overview", "unit_depth_all_units.png")
+        widget = sw.plot_unit_depths(sorting_analyzer, unit_colors = colour_scheme, figsize=(8, 16))
+        fig = widget.figure
+        ax = fig.axes[0]
+        ax.set_xlim(-200, 200)      
+        ax.set_ylim(0, 4000)       
+        ax.set_title("Unit depth")
+        plt.savefig(output_path)
+        plt.close(fig)
+
+        # good units
+        output_path = os.path.join(unit_features_path,"all_units_overview", "unit_location_good_units.png")
+        widget = sw.plot_unit_locations(sorting_analyzer, unit_ids = good_units_ids,  figsize=(8, 16))
+        fig = widget.figure
+        ax = fig.axes[0]
+        ax.set_xlim(-200, 200)      
+        ax.set_ylim(0, 4000)      
+        ax.set_title("Unit location (good units)")
+        plt.savefig(output_path)
+        plt.close(fig)
+    else:
+        output_folder = os.path.join(unit_features_path,"all_units_overview")
+        output_path_df = os.path.join(output_folder, "unit_metrics.csv")
+        df = pd.read_csv(output_path_df)
+        
 
     print("Progress plotting waveforms and autocorrelograms for all cells")
     burst_index_arr = []
@@ -326,3 +338,8 @@ def interspike_histogram(spkTr1, spkTr2, maxInt):
 
     bin_centers = bins[:-1] + binwidth / 2
     return bin_centers, counts
+
+if __name__ == "__main__":
+    derivatives_base = r"C:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-03_date-17092025\all_trials"
+    run_spikeinterface(derivatives_base, True, True)
+    

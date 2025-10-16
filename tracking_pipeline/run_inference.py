@@ -4,6 +4,8 @@ import os
 import numpy as np
 import json
 import sys
+import shutil
+
 """
 this is a quick script that allows you to run your Sleap inference on video files in a directory by calling subprocess. 
 It will create a new folder in the OUTPUT_FOLDER with the same structure as the ROOT_FOLDER and save the inference results there.
@@ -45,20 +47,24 @@ def call_inference_on_all(derivatives_base, rawsession_folder, centroid_model_fo
         call_inference(fpath, dest_path, centered_model_folder, centroid_model_folder)
     return fpaths
 
+
 def call_inference(fpath, dest_folder, centered_model_folder, centroid_model_folder):
     fpath = pathlib.Path(fpath)
     dest_path = dest_folder / f"{fpath.stem}_inference.slp"
+    
     if dest_path.exists():
-        print(f"Skipping {fpath} as {dest_path} already exists.")
+        print(f"Skipping {fpath} as {dest_path} already exists.\n")
         return
 
     if fpath.exists():
-        print(f"processing: {fpath}")
+        print(f"processing: {fpath}\n")
         command_inf = f"sleap-track -m {centered_model_folder} -m {centroid_model_folder} -o {dest_path}  --tracking.tracker none {fpath}  "
-        print(f"{command_inf}")
+        print(f"running inference: {command_inf}\n")
         subprocess.call(command_inf, shell=True)
         final_dest_path = dest_folder / f"{fpath.stem}.h5"
         command_conv = f"sleap-convert --format analysis -o {final_dest_path} {dest_path} "
+        print("Which sleap-track is being used:", shutil.which("sleap-track"))
+        print(f"converting to h5: {final_dest_path}\n")
         subprocess.call(command_conv, shell=True)
 
     else:

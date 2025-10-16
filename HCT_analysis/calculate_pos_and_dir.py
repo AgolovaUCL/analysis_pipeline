@@ -157,39 +157,6 @@ def get_screen_coordinates(data_dir): # these are the 4 tv screens in the corner
     return screen_coordinates, save_flag
 
 
-def get_goal_coordinates(platform_coordinates=None, goals=None, data_dir=None):
-
-    if data_dir is None and platform_coordinates is None:
-        raise ValueError('Must provide either data_dir or platform_coordinates')
-
-    if platform_coordinates is None:
-        robot_maze_dir = get_robot_maze_directory()
-        platform_path = os.path.join(robot_maze_dir, 'workstation', 'map_files')
-        platform_coordinates = load_pickle('platform_coordinates', platform_path)
-   
-    if goals is None:
-        goals = []
-        behaviour_dir = os.path.join(data_dir, 'behaviour')
-
-        behaviour_data = load_pickle('behaviour_data', behaviour_dir)
-        goal = get_goals(behaviour_data)
-
-        # if goal is a list, then there is more than one goal
-        if isinstance(goal, list):
-            goals = goal
-            behaviour_data = load_pickle('behaviour_data_by_goal', behaviour_dir)
-            for k in behaviour_data.keys():
-                goals.append(k)
-
-            goal_coordinates = {}
-            for g in goals:
-                goal_coordinates[g] = platform_coordinates[g][0:2]
-        
-        else:
-            goal_coordinates = platform_coordinates[goal][0:2]
-        
-    return goal_coordinates
-
 
 def get_directions_to_position(point_in_space, positions):
     

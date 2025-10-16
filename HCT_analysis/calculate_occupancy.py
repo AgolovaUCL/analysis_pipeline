@@ -216,7 +216,7 @@ def get_directional_occupancy_by_position(dlc_data, limits):
 
 
 
-def get_relative_direction_occupancy_by_position(dlc_data, limits):
+def get_relative_direction_occupancy_by_position(pos_data, limits, n_dir_bins = 12, frame_rate = 25):
     '''
     output is a y, x, y, x, n_bins array.
     The first y and x are the position bins, and the second y and x are the consink positions.     
@@ -241,15 +241,20 @@ def get_relative_direction_occupancy_by_position(dlc_data, limits):
     n_y_bins = len(y_bins) - 1
 
     # create relative directional occupancy by position array
-    n_dir_bins=12 # 12 bins of 30 degrees each
     
     reldir_occ_by_pos = np.array([[np.zeros((n_y_bins, n_x_bins, n_dir_bins)) for _ in range(n_x_bins)] for _ in range(n_y_bins)])
     
     # get x and y data
-    x = dlc_data['x']
-    y = dlc_data['y']
+    x = pos_data.iloc[:, 0].to_numpy()
+    y = pos_data.iloc[:, 1].to_numpy()
+    hd = pos_data.iloc[:, 2].to_numpy()
+    
+    # Remove nan values, otherwise binning gets funky
+    mask = np.isnan(hd)|np.isnan(x)
+    x = x[~mask]
+    y = y[~mask]
+    hd = hd[~mask]
 
-    # SOPHIA: is this correct?
     x_bin = np.digitize(x, x_bins) - 1
     # find x_bin == n_x_bins, and set it to n_x_bins - 1
     x_bin[x_bin == n_x_bins] = n_x_bins - 1 
@@ -257,18 +262,17 @@ def get_relative_direction_occupancy_by_position(dlc_data, limits):
     y_bin = np.digitize(y, y_bins) - 1
     y_bin[y_bin == n_y_bins] = n_y_bins - 1
 
-    # get the head direction data
-    hd = dlc_data['hd']
-
-
 
     for i in range(np.max(x_bin)+1):
         for j in range(np.max(y_bin)+1):
             # get the indices where x_bin == i and y_bin == j
             indices = np.where((x_bin == i) & (y_bin == j))[0]
-
-            x_positions = x[indices]
-            y_positions = y[indices]
+            try:
+                x_positions = x[indices]
+                y_positions = y[indices]
+            except:
+                print(i, j)
+                breakpoint()
             positions = {'x': x_positions, 'y': y_positions}
 
             # get the head directions and durations for these indices
@@ -284,8 +288,8 @@ def get_relative_direction_occupancy_by_position(dlc_data, limits):
                     
                     # get the relative direction
                     relative_direction = get_relative_directions_to_position(directions, hd_temp)
-                    durations_temp = np.ones(len(relative_direction)) #NOTE: Jake's code used durations data from DLC.
-                    #We don't use that, each frame is equally long, so we replace all durations with 1 (meaning each frame has length 1)
+                    durations_temp = np.ones(len(relative_direction))/frame_rate #NOTE: Jake's code used durations data from DLC.
+                    #We don't use that, each frame is equally long, so we replace all durations with 1/frame_rate
 
                     # get the directional occupancy for these indices
                     directional_occupancy, direction_bins = \
@@ -561,7 +565,7 @@ def get_directional_occupancy(directions, durations, n_bins=12):
     return occupancy, direction_bins_og
 
 
-def get_directional_occupancy_from_dlc(dlc_data, n_bins=24):
+def get_directional_occupancy_from_dlc(dlc_data, n_bins=12):
 
     # create list of dlc_data with directional data
     direction_data = {}

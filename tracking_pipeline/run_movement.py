@@ -22,7 +22,7 @@ import glob
 import pandas as pd
 import json
 import sys
-plt.ion()
+plt.ioff()
 
 def plot_raw_and_smooth_timeseries_and_psd(
     ds_raw,
@@ -179,7 +179,7 @@ def plot_polar_histogram(da, bin_width_deg=15, ax=None):
 
     return fig, ax
 
-def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
+def run_movement(derivatives_base, trials_to_include, show_plots = False,  frame_rate = 25):
     """
     Processing the raw xy data as obtained from running inference.
     Creates:
@@ -187,6 +187,11 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
     - Plots of the position of keypoints before and after smoothing
     - Plots with animal trajectory (in animal trajectory folder)
 
+    Inputs:
+    derivatives_base: path to derivatives folder
+    trials_to_include: trials to look at 
+    show_plots: whether to show plots or just to save them
+    
     Steps:
     1. Filters by confidence
     2. Interpolates (creates plot)
@@ -198,7 +203,7 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
     Assumes that the inference data has the format "T{tr}_*.h5'
     """
 
-    folder_directory = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'inference_results')
+    folder_directory = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'inference_results')
     output_folder = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data')
 
 
@@ -221,18 +226,33 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
 
         pattern = os.path.join(folder_directory, f"T{tr}_*.h5")
         matches = glob.glob(pattern)
-        file_path = matches[0]
+        if len(matches) == 0:
+            print(f"Error: no h5 file found for trial {tr}. Quiting movement")
+            break
+        else:
+            file_path = matches[0]
 
         # --------- Loading data --------
         ds = load_poses.from_sleap_file(file_path, fps=frame_rate)
         position = ds.position
 
-        ds.confidence.squeeze().plot.line(
+        g = ds.confidence.squeeze().plot.line(
             x="time", row="keypoints", aspect=2, size=2.5
         )
-        ds.position.squeeze().plot.line(
+        fig = g.fig
+        output_path = os.path.join(movement_data_folder , f"t{tr}_confidence_raw.png")
+        fig.savefig(output_path, dpi=300, bbox_inches="tight")
+        fig.suptitle("Raw confidence")
+        fig.show()
+        
+        g = ds.position.squeeze().plot.line(
             x="time", row="keypoints", hue="space", aspect=2, size=2.5
         )
+        fig = g.fig
+        output_path = os.path.join(movement_data_folder , f"t{tr}_keypoints_raw.png")
+        fig.savefig(output_path, dpi=300, bbox_inches="tight")
+        fig.suptitle("Raw position")
+        fig.show()
 
         # Filtering by confidence
         ds.update(
@@ -248,10 +268,11 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
 
 
         # Interpolating over time
+        max_gap = 30
         ds.update(
             {
                 "position": interpolate_over_time(
-                    ds.position, max_gap=50, print_report=True
+                    ds.position, max_gap=max_gap, print_report=True
                 )
             }
         )
@@ -262,10 +283,11 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
         fig = g.fig
         output_path = os.path.join(movement_data_folder , f"t{tr}_keypoints_presmoothing.png")
         fig.savefig(output_path, dpi=300, bbox_inches="tight")
+        fig.suptitle(f"With interpolation, max_gap = {max_gap}")
         fig.show()
 
         # ---------- Smoothing ----------
-        window = int(ds.fps)
+        window = int(ds.fps * 0.5)
         ds_smooth = ds.copy()
         ds_smooth.update(
             {
@@ -281,6 +303,7 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
         fig = g.fig
         output_path = os.path.join(movement_data_folder , f"t{tr}_keypoints_smoothed.png")
         fig.savefig(output_path, dpi=300, bbox_inches="tight")
+        fig.suptitle(f"Smoothed, window = {window}")
         fig.show()
         plot_raw_and_smooth_timeseries_and_psd(ds, ds_smooth, keypoint="headcap")
 
@@ -390,7 +413,32 @@ def run_movement(derivatives_base, trials_to_include, frame_rate = 25):
         fig.show()
 
         #input("Press Enter to close plots...")
-        plt.close('all')
+        
+        # Saving center coordinates (used in consink code)
+        center  = position.sel(keypoints="center", drop=True)
+        x_vals = center.sel(space = 'x')
+        x =  x_vals.values.flatten()
+        
+        y_vals = center.sel(space = 'y')
+        y =  y_vals.values.flatten()   
+        
+                # build a pandas DataFrame
+        df = pd.DataFrame({
+            "x":              x,
+            "y":              y,
+            "hd":    hd_orth_deg,
+        })
+
+        # save to CSV
+        csv_path = os.path.join(positional_data_folder, f"XY_HD_center_t{tr}.csv")
+        df.to_csv(csv_path, index=False)
+        print(f"→ Saved positional + HD data to {csv_path}")
+        
+        if show_plots:
+            print(f"Showing plots for trial {tr}. Close all to continue")
+            plt.show(block = True)
+        if not show_plots:
+            plt.close('all')
 
 
 def main():
@@ -402,6 +450,9 @@ def main():
     )
 
     print(json.dumps({"status": "done"}))
-    
+
+
 if __name__ == "__main__":
-    main()
+    derivatives_base =  r"C:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
+    
+    run_movement(derivatives_base, [2], show_plots = True)

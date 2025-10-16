@@ -29,11 +29,12 @@ def plot_spikecount_over_trials(derivatives_base, rawsession_folder,trials_to_in
     trial_length_df = pd.read_csv(path_to_df)
 
     bin_length = 60
-    output_folder = os.path.join(derivatives_base, "cell_characteristics", "unit_features", "spikecount_over_trials")
+    output_folder = os.path.join(derivatives_base,"analysis", "cell_characteristics", "unit_features", "spikecount_over_trials")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
     # Loading data
+    print("Plotting spikecount over trials")
     for unit_id in tqdm(unit_ids): 
         
         output_path = os.path.join(output_folder, f"unit_{unit_id}_sc_over_trials.png")
@@ -85,6 +86,7 @@ def plot_spikecount_over_trials(derivatives_base, rawsession_folder,trials_to_in
         plt.ylabel("Number of spikes per minute")
         plt.title(f"Unit {unit_id}: Spike count across trials")
         plt.tight_layout()
+        plt.savefig(output_path)
         plt.close()
         
     print(f"Plots saved in {output_folder}")

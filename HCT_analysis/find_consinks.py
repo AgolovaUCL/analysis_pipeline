@@ -4,24 +4,19 @@ import glob
 import pandas as pd
 import spikeinterface.extractors as se
 import matplotlib.pyplot as plt
-from calculate_pos_and_dir import get_goal_coordinates, get_x_and_y_limits, get_directions_to_position, get_relative_directions_to_position
-from calculate_occupancy import get_relative_direction_occupancy_by_position, concatenate_dlc_data, get_axes_limits, calculate_frame_durations, get_direction_bins, bin_directions
+from calculate_pos_and_dir import  get_directions_to_position, get_relative_directions_to_position
+from calculate_occupancy import get_relative_direction_occupancy_by_position,  get_axes_limits,  get_direction_bins, bin_directions
 from utilities.load_and_save_data import load_pickle, save_pickle
 from utilities.restrict_spiketrain import restrict_spiketrain
-import pycircstat as pycs
+from utilities.trials_utils import get_limits_from_json, get_goal_coordinates, get_coords
+from matplotlib.patches import RegularPolygon
 import matplotlib
 matplotlib.use("QtAgg") 
 from joblib import Parallel, delayed
-
-
-cm_per_pixel = 0.2
-# Parameters for camera
-radius = 4
-hex_side_length = 87# Length of the side of the hexagon
-theta = np.radians(305)  # Rotation angle in radians
-desired_x, desired_y = 1320, 950
-
-
+from utilities.mrl_func import resultant_vector_length
+from astropy.stats import circmean
+from tqdm import tqdm
+cm_per_pixel = 1
 def rel_dir_distribution_all_sinks(spike_train, sink_bins, candidate_sinks, direction_bins, pos_data):
    
     """ 
@@ -89,6 +84,8 @@ def rel_dir_ctrl_distribution_all_sinks(spike_train, reldir_occ_by_pos, sink_bin
     For a given unit, produces relative direction occupancy distributions 
     for each candidate consink position based on the number of spikes fired 
     at each positional bin. 
+    
+    NOTE: The input for the spikes will already be restricted to each goal
     """
 
     # get head directions as np array
@@ -166,12 +163,12 @@ def mean_resultant_length_nrdd(normalised_rel_dir_dist, direction_bins):
     for i in range(n_y_bins):
         for j in range(n_x_bins):
 
-            mrl[i,j] = pycs.resultant_vector_length(dir_bin_centres, w=normalised_rel_dir_dist[i,j,:])
-            mean_angle[i,j] = pycs.mean(dir_bin_centres, w=normalised_rel_dir_dist[i,j,:])
+            mrl[i,j] = resultant_vector_length(dir_bin_centres, w=normalised_rel_dir_dist[i,j,:])
+            mean_angle[i,j] = circmean(dir_bin_centres, weights=normalised_rel_dir_dist[i,j,:])
 
     return mrl, mean_angle
 
-def plot_all_consinks(consinks_df, goal_coordinates, limits, jitter, plot_dir, plot_name='ConSinks'):
+def plot_all_consinks(consinks_df, goal_coordinates, hcoord, vcoord,  limits, jitter, plot_dir, plot_name='ConSinks'):
     
     # Create two subplots
     fig, axes = plt.subplots(1,2, figsize = (20,10))
@@ -181,11 +178,21 @@ def plot_all_consinks(consinks_df, goal_coordinates, limits, jitter, plot_dir, p
         ax.set_xlabel('x position (cm)', fontsize=16)
         ax.set_ylabel('y position (cm)', fontsize=16)
 
+        # Add some coloured hexagons and adjust the orientation to match the rotated grid
+        for i, (x, y) in enumerate(zip(hcoord, vcoord)):
+            hex = RegularPolygon((x, y), numVertices=6, radius=2. / 3.,
+                                orientation=np.radians(60),  # Rotate hexagons to align with grid
+                                facecolor='grey', alpha=0.2, edgecolor='k')
+            ax.text(x, y, i + 1, ha='center', va='center', size=15)  # Start numbering from 1
+            ax.add_patch(hex)
+
+        # Also add scatter points in hexagon centres
+        ax.scatter(hcoord, vcoord, alpha=0, c = 'grey')
         # plot the goal positions
         circle = plt.Circle(goal_coordinates[g-1], 80, color='g', 
                 fill=False, linewidth=5)
         ax.add_artist(circle)   
-            
+        ax.set_title(f'Goal {g}', fontsize=20)
         # loop through the rows of the consinks_df, plot a filled red circle at the consink 
         # position if the mrl is greater than ci_999
 
@@ -220,7 +227,7 @@ def plot_all_consinks(consinks_df, goal_coordinates, limits, jitter, plot_dir, p
 
             # make the axes equal
             ax.set_aspect('equal')
-
+            """
             # set font size of axes
             ax.tick_params(axis='both', which='major', labelsize=14)
 
@@ -237,7 +244,7 @@ def plot_all_consinks(consinks_df, goal_coordinates, limits, jitter, plot_dir, p
 
             ax.set_yticks(y_ticks)
             ax.set_yticklabels(y_ticks_cm)
-            
+            """
 
 
     plt.savefig(os.path.join(plot_dir, plot_name + '.png'))
@@ -271,20 +278,6 @@ def find_consink(spike_train, reldir_occ_by_pos, sink_bins, direction_bins, cand
 
     return np.round(max_mrl, 3), max_mrl_indices, mean_angle
 
-def recalculate_consink_to_all_candidates_from_translation(unit, dlc_data, reldir_occ_by_pos, sink_bins, direction_bins, candidate_sinks):
-
-    n_shuffles = 1000
-    mrl = np.zeros(n_shuffles)
-
-    mrl = Parallel(n_jobs=-1, verbose=50)(delayed(calculate_translated_mrl)(unit, dlc_data, reldir_occ_by_pos, sink_bins, direction_bins, candidate_sinks) for s in range(n_shuffles))
-
-    mrl = np.round(mrl, 3)
-    mrl_95 = np.percentile(mrl, 95)
-    mrl_999 = np.percentile(mrl, 99.9)
-
-    ci = (mrl_95, mrl_999)
-    
-    return ci
 
 def shift_spiketrain(spike_train, n_frames: int, frame_rate = 25):
     """Shift the spike train by a random amount.
@@ -321,7 +314,7 @@ def recalculate_consink_to_all_candidates_from_translation(spiketrain, dlc_data,
     n_shuffles = 1000
     mrl = np.zeros(n_shuffles)
 
-    mrl = Parallel(n_jobs=-1, verbose=50)(delayed(calculate_translated_mrl)(spiketrain, dlc_data, reldir_occ_by_pos, sink_bins, direction_bins, candidate_sinks) for s in range(n_shuffles))
+    mrl = Parallel(n_jobs=-1, verbose=0)(delayed(calculate_translated_mrl)(spiketrain, dlc_data, reldir_occ_by_pos, sink_bins, direction_bins, candidate_sinks) for s in range(n_shuffles))
     #mrl = [calculate_translated_mrl(spiketrain, dlc_data, reldir_occ_by_pos, sink_bins, direction_bins, candidate_sinks) for s in range(n_shuffles)]
     mrl = np.round(mrl, 3)
     mrl_95 = np.percentile(mrl, 95)
@@ -332,27 +325,36 @@ def recalculate_consink_to_all_candidates_from_translation(spiketrain, dlc_data,
     return ci
 
 
+    
 def main(derivatives_base, rawsession_folder, code_to_run = [], frame_rate = 25, sample_rate = 30000):
     """
     Code to find consinks, based on Jake's code
 
 
     """
-    code_to_run = [0,1]
     
-    
-    x_min = 550
-    x_max = 2050
-    y_min = 350
-    y_max = 1850
+    # Loading limits
+    x_min, x_max, y_min, y_max = get_limits_from_json(derivatives_base)
     
     # Loading spike data
     kilosort_output_path = os.path.join(derivatives_base, "ephys", "concat_run","sorting", "sorter_output" )
     sorting = se.read_kilosort(
         folder_path = kilosort_output_path
     )
-    unit_ids = sorting.unit_ids
+    #unit_ids = sorting.unit_ids
 
+    # Loading good units
+    good_units_path = os.path.join(derivatives_base, "ephys", "concat_run", "sorting","sorter_output", "cluster_group.tsv")
+    good_units_df = pd.read_csv(good_units_path, sep='\t')
+    good_units = good_units_df[good_units_df['group'] == 'good']['cluster_id'].values
+    
+    # Loading pyramidal units
+    """
+    pyramidal_units_path = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features","all_units_overview", "pyramidal_units.csv")
+    pyramidal_units_df = pd.read_csv(pyramidal_units_path)
+    pyramidal_units = pyramidal_units_df['unit_ids'].values
+    good_units = pyramidal_units
+    """
     # Loading xy data
     pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'XY_HD_alltrials.csv')
     pos_data = pd.read_csv(pos_data_path)
@@ -361,49 +363,71 @@ def main(derivatives_base, rawsession_folder, code_to_run = [], frame_rate = 25,
         pos_data['hd'] = np.deg2rad(pos_data['hd'])
 
 
+    pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'XY_HD_goal1_trials.csv')
+    pos_data_g1 = pd.read_csv(pos_data_path)
+
+    if np.nanmax(pos_data_g1['hd']) > 2* np.pi + 0.1: # Check if angles are in radians
+        pos_data_g1['hd'] = np.deg2rad(pos_data_g1['hd'])
+
+    pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'XY_HD_goal2_trials.csv')
+    pos_data_g2 = pd.read_csv(pos_data_path)
+
+    if np.nanmax(pos_data_g2['hd']) > 2* np.pi + 0.1: # Check if angles are in radians
+        pos_data_g2['hd'] = np.deg2rad(pos_data_g2['hd'])
+        
     # get x and y limits
     limits = get_axes_limits(x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max)
 
     # output folder
-    output_folder = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'unit_features', 'spatial_features', 'consink_data')
+    output_folder = os.path.join(derivatives_base, 'analysis', 'cell_characteristics',  'spatial_features', 'consink_data')
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-
-    # For now, we're ignoring choice types
-    reldir_occ_by_pos = {}
-    sink_bins = {}
-    candidate_sinks = {}
 
     # Direction bins
     direction_bins = get_direction_bins(n_bins=12)
 
     # Loading or creating data 
     file_name = 'reldir_occ_by_pos.npy'
-    if os.path.exists(os.path.join(output_folder, file_name)) == False:
+    if not os.path.exists(os.path.join(output_folder, file_name)) or not os.path.exists(os.path.join(output_folder, 'reldir_occ_by_pos_g1.npy')):
+        print("Calculating relative direction occupancy by position")
         reldir_occ_by_pos, sink_bins, candidate_sinks = get_relative_direction_occupancy_by_position(pos_data, limits)
+        reldir_occ_by_pos_g1, _, _ = get_relative_direction_occupancy_by_position(pos_data_g1, limits)
+        reldir_occ_by_pos_g2, _, _ = get_relative_direction_occupancy_by_position(pos_data_g2, limits)
         np.save(os.path.join(output_folder , file_name), reldir_occ_by_pos)
+        np.save(os.path.join(output_folder , 'reldir_occ_by_pos_g1.npy'), reldir_occ_by_pos_g1)
+        np.save(os.path.join(output_folder , 'reldir_occ_by_pos_g2.npy'), reldir_occ_by_pos_g2)
+        
         # save sink bins and candidate sinks as pickle files
-        save_pickle(sink_bins, f'sink_bins', output_folder)
-        save_pickle(candidate_sinks, f'candidate_sinks', output_folder)     
+        save_pickle(sink_bins, 'sink_bins', output_folder)
+        save_pickle(candidate_sinks, 'candidate_sinks', output_folder)
+        save_pickle(direction_bins, 'direction_bins', output_folder)     
 
     else:
         reldir_occ_by_pos = np.load(os.path.join(output_folder, file_name))
-        sink_bins = load_pickle(f'sink_bins', output_folder)
-        candidate_sinks = load_pickle(f'candidate_sinks', output_folder)
+        reldir_occ_by_pos_g1 = np.load(os.path.join(output_folder, 'reldir_occ_by_pos_g1.npy'))
+        reldir_occ_by_pos_g2 = np.load(os.path.join(output_folder, 'reldir_occ_by_pos_g2.npy'))
+        sink_bins = load_pickle('sink_bins', output_folder)
+        candidate_sinks = load_pickle('candidate_sinks', output_folder)
 
     ## Get goal coordinates
     # Doesn't do antyhing yet
-    goal_coordinates = np.array([[700, 800], [100, 200]])
+    goal_coordinates = get_goal_coordinates(derivatives_base, rawsession_folder)
 
     ################# CALCULATE CONSINKS ###########################################     
     consinks = {}
     consinks_df = {}
 
     if 0 in code_to_run:
-        for unit_id in np.arange(0, 4):
+        print("Calculating consinks")
+        for unit_id in tqdm(good_units):
             consinks[unit_id] = {'unit_id': unit_id}
 
             for g in [1, 2]:
+                if g == 1:
+                    reldir_occ_by_pos_cur = reldir_occ_by_pos_g1
+                else:
+                    reldir_occ_by_pos_cur = reldir_occ_by_pos_g2
+                    
                 # Find spiketrain
                 spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
                 spike_train_secs = spike_train_unscaled / sample_rate
@@ -411,9 +435,12 @@ def main(derivatives_base, rawsession_folder, code_to_run = [], frame_rate = 25,
                 spike_train = np.round(spike_train_secs_g * frame_rate)
                 spike_train = [np.int32(el) for el in spike_train if el < len(pos_data)]  
 
+                if len(spike_train) == 0:
+                    continue
+                
                 # get consink  
                 max_mrl, max_mrl_indices, mean_angle = find_consink(
-                    spike_train, reldir_occ_by_pos, sink_bins, direction_bins, candidate_sinks, pos_data
+                    spike_train, reldir_occ_by_pos_cur, sink_bins, direction_bins, candidate_sinks, pos_data
                 )
                 consink_position = np.round(
                     [candidate_sinks['x'][max_mrl_indices[1][0]], 
@@ -441,7 +468,7 @@ def main(derivatives_base, rawsession_folder, code_to_run = [], frame_rate = 25,
     # previously identified consink position. 
     
     if 1 in code_to_run:
-        
+        print("Assessing significance")
         # load the consinks_df
         consinks_df = load_pickle('consinks_df', output_folder)
 
@@ -457,16 +484,22 @@ def main(derivatives_base, rawsession_folder, code_to_run = [], frame_rate = 25,
             consinks_df.insert(idx_g2 + 1, 'ci_95_g2', np.nan)
             consinks_df.insert(idx_g2 + 2, 'ci_999_g2', np.nan)
 
-        for unit_id in np.arange(0,4):
+        for unit_id in tqdm(good_units):
             for g in [1,2]:
+                if g == 1:
+                    reldir_occ_by_pos_cur = reldir_occ_by_pos_g1
+                else:
+                    reldir_occ_by_pos_cur = reldir_occ_by_pos_g2
+                    
                 spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
                 spike_train_secs = spike_train_unscaled / sample_rate
                 spike_train_secs_g = restrict_spiketrain(spike_train_secs, rawsession_folder, goal=g)
                 spike_train = np.round(spike_train_secs_g*frame_rate) # trial data is now in frames in order to match it with xy data
                 spike_train = [np.int32(el) for el in spike_train if el < len(pos_data)]  # Ensure spike train is within bounds of x and y
 
-
-                ci = recalculate_consink_to_all_candidates_from_translation(spike_train, pos_data, reldir_occ_by_pos, sink_bins, direction_bins, candidate_sinks)
+                if len(spike_train) == 0:
+                    continue
+                ci = recalculate_consink_to_all_candidates_from_translation(spike_train, pos_data, reldir_occ_by_pos_cur, sink_bins, direction_bins, candidate_sinks)
 
                 consinks_df.loc[unit_id, f'ci_95_g{g}'] = ci[0]
                 consinks_df.loc[unit_id, f'ci_999_g{g}'] = ci[1]
@@ -480,17 +513,23 @@ def main(derivatives_base, rawsession_folder, code_to_run = [], frame_rate = 25,
     y_diff = np.mean(np.diff(candidate_sinks['y']))
     jitter = (x_diff/3, y_diff/3)
     
-    plot_dir = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'unit_features', 'spatial_features', 'consink_plots')
+    plot_dir = os.path.join(derivatives_base, 'analysis', 'cell_characteristics',  'spatial_features', 'consink_plots')
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
+    hcoord, vcoord = get_coords(derivatives_base)
     # Check if consinks_df is a dictionairy otherwise convert
     consinks_df = load_pickle('consinks_df', output_folder)
-    plot_all_consinks(consinks_df, goal_coordinates, limits, jitter=jitter, plot_dir=plot_dir, plot_name='ConSinks')
+    
+    # Filter consinks_df only for good units
+    consinks_df_good = consinks_df.loc[good_units]
+    breakpoint()
+    plot_all_consinks(consinks_df_good, goal_coordinates, hcoord, vcoord, limits, jitter=jitter, plot_dir=plot_dir, plot_name='ConSinks Good Units')
 
 if __name__ == "__main__":
     
-    derivatives_base = r"D:\Spatiotemporal_task\derivatives\sub-003_id_2V\ses-02_testHCT\test"
-    main(derivatives_base)
+    rawsession_folder = r"S:\Honeycomb_maze_task\rawdata\sub-002_id-1R\ses-01_date-10092025"
+    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
+    main(derivatives_base, rawsession_folder, code_to_run=[0,1])
 
 

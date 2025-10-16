@@ -21,6 +21,8 @@ def combine_pos_csvs(derivatives_base, trials_to_include):
     
     data = {"x": [], "y": [], "hd": []}
     df = pd.DataFrame(data)
+    df_center = pd.DataFrame(data) # This will store the coordinates with the center positions
+    
     for tr in trials_to_include:
         input_path = os.path.join(folder_path, f"XY_HD_t{tr}.csv")
 
@@ -30,7 +32,18 @@ def combine_pos_csvs(derivatives_base, trials_to_include):
         df_tr = pd.read_csv(input_path)
 
         df = pd.concat([df, df_tr])
+        
+        #### CENTER POSITION
+        input_path = os.path.join(folder_path, f"XY_HD_center_t{tr}.csv")
+        if not os.path.exists(input_path):
+            raise Exception(f"Path to XY data for center for trial {tr} not found")
+        
+        df_tr_center = pd.read_csv(input_path)
+        df_center = pd.concat([df_center, df_tr_center])
 
     output_path = os.path.join(folder_path, "XY_HD_alltrials.csv")
     df.to_csv(output_path, index = False)
-    print(f"Dataframe saved to {output_path}")
+    
+    output_path_center = os.path.join(folder_path, "XY_HD_alltrials_center.csv")
+    df_center.to_csv(output_path_center, index = False)
+    print(f"Dataframe saved to {output_path_center}")

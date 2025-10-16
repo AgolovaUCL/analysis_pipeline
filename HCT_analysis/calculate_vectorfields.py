@@ -1,20 +1,17 @@
 import os
 import numpy as np
-import pycircstat as circ
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import spikeinterface.extractors as se
 import pandas as pd
 import sys
-sys.path.append('C:/Users/Jake/Documents/python_code/robot_maze_analysis_code')
-from utilities.get_directories import get_data_dir
+sys.path.append('C:/Users/Jake/Documents/python_code/rob_maze_analysis_code')
 from utilities.load_and_save_data import load_pickle, save_pickle
-from behaviour.load_behaviour import get_behaviour_dir
-from position.calculate_pos_and_dir import get_goal_coordinates, get_x_and_y_limits
-
-
-cm_per_pixel = 0.2
+from utilities.trials_utils import get_goal_coordinates
+from utilities.mrl_func import resultant_vector_length
+from astropy.stats import circmean
+cm_per_pixel = 1
 
 
 def calculate_vector_fields(spike_rates_by_position_and_direction):
@@ -53,8 +50,8 @@ def calculate_vector_fields(spike_rates_by_position_and_direction):
                 if np.isnan(rates).any() or np.all(rates == 0):
                     continue
 
-                mean_dir = np.round(circ.mean(bin_centres, rates), 3)
-                mrl = np.round(circ.resultant_vector_length(bin_centres, rates), 3)
+                mean_dir = np.round(circmean(bin_centres, weights = rates), 3)
+                mrl = np.round(resultant_vector_length(bin_centres, w = rates), 3)
 
                 if mean_dir > np.pi:
                     mean_dir = mean_dir - 2*np.pi
@@ -111,8 +108,11 @@ def plot_vector_fields_all(unit_ids, vector_fields, goal_coordinates, x_centres,
                         fill=False, linewidth=5)
                 ax[i].add_artist(circle)    
             
-            
-            vector_field = vector_fields[g][u]
+            try:
+                vector_field = vector_fields[g]['units'][int(u)]
+            except:
+                print(f"No vector field for unit {u} and goal {g}")
+                continue
 
             # plot vector field
             ax[i].quiver(x_centres, y_centres, np.cos(vector_field), np.sin(vector_field), color='k', scale=10)
@@ -135,7 +135,6 @@ def plot_vector_fields_all(unit_ids, vector_fields, goal_coordinates, x_centres,
                 consink_pos = consink_row[f'position_g{g}']
                 consink_angle = consink_row[f'mean_angle_g{g}']
                 ci_95 = consink_row[f'ci_95_g{g}']
-                ci_999 = consink_row[f'ci_999_g{g}']
                 if consink_angle > np.pi:
                     consink_angle = consink_angle - 2*np.pi
                 
@@ -151,12 +150,12 @@ def plot_vector_fields_all(unit_ids, vector_fields, goal_coordinates, x_centres,
                 ax[i].add_artist(circle)      
             
                 # add text with mrl, ci_95, ci_999
-                # ax[i].text(0, 2100, f'mrl: {mrl:.2f}\nci_95: {ci_95:.2f}\nci_999: {ci_999:.2f}\nangle: {consink_angle:.2f}', fontsize=16)
-                ax[i].text(0, 2100, f'mrl: {mrl:.2f}\nci_999: {ci_999:.2f}\nangle: {consink_angle:.2f}', fontsize=16)
+                ax[i].text(400, 1800, f'mrl: {mrl:.2f}\nci_95: {ci_95:.2f}\nangle: {np.rad2deg(consink_angle):.2f}', fontsize=16)
+                #ax[i].text(0, 2100, f'mrl: {mrl:.2f}\nci_999: {ci_999:.2f}\nangle: {consink_angle:.2f}', fontsize=16)
                 
             # set font size of axes
             ax[i].tick_params(axis='both', which='major', labelsize=14)
-
+            """
             # get the axes values
             x_ticks = ax[i].get_xticks()
             y_ticks = ax[i].get_yticks()
@@ -169,7 +168,7 @@ def plot_vector_fields_all(unit_ids, vector_fields, goal_coordinates, x_centres,
             ax[i].set_xticklabels(x_ticks_cm)
             ax[i].set_yticklabels(y_ticks_cm)
 
-
+            """
 
             # set the axes to have identical scales
             ax[i].set_aspect('equal')        
@@ -178,7 +177,7 @@ def plot_vector_fields_all(unit_ids, vector_fields, goal_coordinates, x_centres,
         plt.close(fig)
         
         
-def main(derivatives_base):
+def main(derivatives_base, rawsession_folder):
     """
     For each unit, creates a 3x1 subplot of vector fields for all trials, goal 1 trials, and goal 2 trials.
     run get_directional_occupancy_by_pos.py first to generate the necessary data.
@@ -209,7 +208,7 @@ def main(derivatives_base):
         os.makedirs(output_folder)
 
 
-    goal_coordinates = [(1800, 900), (800, 1600)] # goal 1, goal 2
+    goal_coordinates = get_goal_coordinates(derivatives_base, rawsession_folder)
     consink_df = load_pickle('consinks_df', output_folder)
     
     
@@ -223,9 +222,10 @@ def main(derivatives_base):
 
     # Now per goal
     for g in [1,2]:
+        print("Calculating vector fields for goal ", g)
         spike_rates_by_position_and_direction_by_goal = load_pickle( f'spike_rates_by_position_and_direction_g{g}', output_folder)
         vector_fields[g], mean_resultant_lengths[g] = calculate_vector_fields(spike_rates_by_position_and_direction_by_goal)
-        
+    print("Saving")
     # Save
     save_pickle(vector_fields, 'vector_fields', output_folder)
     save_pickle(mean_resultant_lengths, 'mean_resultant_lengths', output_folder)
@@ -234,20 +234,24 @@ def main(derivatives_base):
     plot_dir = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'unit_features', 'spatial_features', 'vector_fields')
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
+    print(f"Saving to {plot_dir}")
     x_bins = vector_fields[0]['x_bins']
     x_centres = x_bins[:-1] + np.diff(x_bins)/2
     y_bins = vector_fields[0]['y_bins']
     y_centres = y_bins[:-1] + np.diff(y_bins)/2
     plot_vector_fields_all(unit_ids, vector_fields, goal_coordinates, x_centres, y_centres, plot_dir, consink_df)
 
-    pass
-
+    consink_csv_path = os.path.join(output_folder, 'consinks_df.csv')
+    consink_df.to_csv(consink_csv_path, index=True)
+    print(f"Saved consink_df as CSV to: {consink_csv_path}")
+    
 
 
 
 if __name__ == "__main__":
-    derivatives_base = r"D:\Spatiotemporal_task\derivatives\sub-003_id_2V\ses-02_testHCT\test"
-    main(derivatives_base)
+    rawsession_folder = r"S:\Honeycomb_maze_task\rawdata\sub-002_id-1R\ses-01_date-10092025"
+    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
+    main(derivatives_base, rawsession_folder)
 
 
 

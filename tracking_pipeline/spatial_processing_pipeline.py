@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 
-"""
+r"""
 This file is a pipeline to run the spatial analysis (from videos + sleap model --> positional data in .csv format and videos overlayed with HD)
 
 Inputs:
@@ -33,15 +33,15 @@ sleap_env_path = r"C:\Users\eylon\.conda\envs\sleap\python.exe"
 movement_env_path = r"C:\Users\eylon\.conda\envs\movement-env\python.exe"
 
 # For Sophia's comp
-sleap_env_path = r"C:\Users\Sophia\AppData\Local\anaconda3\envs\sleap\python.exe"
+sleap_env_path = r"C:\Users\Sophia\AppData\Local\anaconda3\envs\sleap_new\python.exe"
 movement_env_path = r"C:\Users\Sophia\AppData\Local\anaconda3\envs\movement-env2\python.exe"
 
-trials_to_include = np.arange(1,11)
+trials_to_include = np.array([2])
 
-derivatives_base = r"D:\Spatiotemporal_task\derivatives\sub-003_id_2V\ses-01_date-30072025\all_trials"
-rawsession_folder = r"D:\Spatiotemporal_task\rawdata\sub-003_id_2V\ses-01_date-30072025"
-centroid_model_folder = r"Z:\Eylon\SLEAP_NEWCAMERA_21072025\models\250731_163959.centroid.n=1377"
-centered_model_folder = r"Z:\Eylon\SLEAP_NEWCAMERA_21072025\models\250801_114358.centered_instance.n=1377"
+derivatives_base = r"C:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
+rawsession_folder = r"C:\Honeycomb_maze_task\rawdata\sub-002_id-1R\ses-01_date-10092025"
+centroid_model_folder = r"Z:\Eylon\SLEAP_NEWCAMERA_21072025\models\251001_114517.centroid.n=1993"
+centered_model_folder = r"Z:\Eylon\SLEAP_NEWCAMERA_21072025\models\251001_131852.centered_instance.n=1993"
 
 
 # Running inference
@@ -52,6 +52,8 @@ data_dict = {
     "centroid_model_folder": centroid_model_folder,
     "centered_model_folder": centered_model_folder
 }
+
+print("Fine till now")
 result = subprocess.run(
     [sleap_env_path, script_path],
     input=json.dumps(data_dict),
@@ -60,7 +62,7 @@ result = subprocess.run(
     check=True
 )
 print(result.stdout)  
-
+breakpoint()
 # Running movement
 this_file = Path(__file__).resolve()
 script_path_movement = this_file.parent / "run_movement.py"
