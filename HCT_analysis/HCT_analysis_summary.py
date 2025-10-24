@@ -63,6 +63,8 @@ def run_HCT(rawsession_folder, derivatives_base):
     # Obtains coordinates for the square in which consinks will be placed
     get_limits(derivatives_base, rawsession_folder) 
     
+    # ADd function that creates goal1 and goal2 pos data df
+    
     # Gets directional occupancy per bin
     # Currently working! Hopefully no errors
     directional_occupancy_main(derivatives_base, rawsession_folder, code_to_run = [0,1])

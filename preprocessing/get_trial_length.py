@@ -62,3 +62,8 @@ def get_trial_length(session_folder, trials_to_include):
     print(total_trial_length)
   
     return total_trial_length
+
+if __name__ == "__main__":
+    session_folder = r"\\ceph-gw02.hpc.swc.ucl.ac.uk\okeefe\Eylon\Data\Honeycomb_Maze_Task\rawdata\sub-003_id-2F\ses-01_date-17092025"
+    trials_to_include = np.arange(1,7)
+    get_trial_length(session_folder, trials_to_include)

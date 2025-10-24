@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
 import cv2
-def plot_maze_outline(derivatives_base):
+def plot_maze_outline(derivatives_base, img = None):
     """
     Plots and saves the outer boundary of the honeycomb maze 
     (edges of the outermost platforms), and saves outline coordinates to JSON.
@@ -30,8 +30,9 @@ def plot_maze_outline(derivatives_base):
     rotation_deg = params["rotation"]
 
     # ---- Load background image (optional) ----
-    img_path = r"C:\Users\Sophia\Documents\analysis_pipeline\code\config_files\camera_image.png"
-    img = cv2.imread(img_path)
+    if img is None:
+        img_path = r"C:\Users\Sophia\Documents\analysis_pipeline\code\config_files\camera_image.png"
+        img = cv2.imread(img_path)
     # ---- Compute vertices for all platforms ----
     rotation_rad = np.radians(rotation_deg)
     base_hex = np.array([

@@ -101,7 +101,10 @@ def do_overlay(video_path, df, output_path):
 
     cap.release()
     out.release()
-    cv2.destroyAllWindows()
+    try:
+        cv2.destroyAllWindows()
+    except cv2.error:
+        pass
 
 
 if __name__ == "__main__":

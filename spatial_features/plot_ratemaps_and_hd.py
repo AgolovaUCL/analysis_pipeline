@@ -5,10 +5,11 @@ import pandas as pd
 import spikeinterface.extractors as se
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from spatial_functions import get_ratemaps
+from spatial_features.spatial_functions import get_ratemaps
 import json
+from typing import Literal
 
-def plot_ratemaps_and_hd(derivatives_base, frame_rate = 25, sample_rate = 30000):
+def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good', 'all'],  frame_rate = 25, sample_rate = 30000):
     """ 
     Makes a plot for each unit with its ratemap (left) and directional firing rate (right)
 
@@ -21,8 +22,19 @@ def plot_ratemaps_and_hd(derivatives_base, frame_rate = 25, sample_rate = 30000)
         folder_path = kilosort_output_path
     )
     unit_ids = sorting.unit_ids
-    labels = sorting.get_property('KSLabel')
 
+    if unit_type == 'good':
+        good_units_path = os.path.join(derivatives_base, "ephys", "concat_run", "sorting","sorter_output", "cluster_group.tsv")
+        good_units_df = pd.read_csv(good_units_path, sep='\t')
+        unit_ids = good_units_df[good_units_df['group'] == 'good']['cluster_id'].values
+        print("Using all good units")
+    elif unit_type == 'pyramidal':
+        pyramidal_units_path = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features","all_units_overview", "pyramidal_units_2D.csv")
+        pyramidal_units_df = pd.read_csv(pyramidal_units_path)
+        pyramidal_units = pyramidal_units_df['unit_ids'].values
+        unit_ids = pyramidal_units
+    
+    
     # Limits
     limits_path = os.path.join(derivatives_base, "analysis", "maze_overlay", "limits.json")
     with open(limits_path) as json_data:
@@ -54,20 +66,21 @@ def plot_ratemaps_and_hd(derivatives_base, frame_rate = 25, sample_rate = 30000)
     hd = pos_data.iloc[:, 2].to_numpy()
     
     # output folder
-    output_folder = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'spatial_features', 'spatial_plots', 'ratemaps_and_hd')
+    output_folder = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'spatial_features', 'ratemaps_and_hd')
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
         
         
     # Loop over units
     print("Plotting ratemaps and hd")
+
     for unit_id in tqdm(unit_ids):
         # Load spike data
         spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
-        spike_train = np.round(spike_train_unscaled*frame_rate/sample_rate) # trial data is now in frames in order to match it with xy data
-        spike_train = [np.int32(el) for el in spike_train if el < len(x)]  # Ensure spike train is within bounds of x and y
+        spike_train_pre = np.round(spike_train_unscaled*frame_rate/sample_rate) # trial data is now in frames in order to match it with xy data
+        spike_train = [np.int32(el) for el in spike_train_pre if el < len(x)]  # Ensure spike train is within bounds of x and y
         # Make plot
-        fig, axs = plt.subplots(1, 2, figsize = [8, 4])
+        fig, axs = plt.subplots(1, 3, figsize = [15, 5])
         axs = axs.flatten()
         fig.suptitle(f"Unit {unit_id}", fontsize = 18)
 
@@ -90,6 +103,27 @@ def plot_ratemaps_and_hd(derivatives_base, frame_rate = 25, sample_rate = 30000)
                 axs[0].plot(outline_x, outline_y, 'r-', lw=2, label='Maze outline')
         fig.colorbar(im, ax=axs[0], label='Firing rate')
 
+    
+        # 2. Plot occupancy
+        x_no_nan =  x[~pd.isna(x)]
+        y_no_nan = y[~pd.isna(y)]
+        heatmap_data, xbins, ybins  = np.histogram2d(x_no_nan, y_no_nan, bins=20, range=[[xmin, xmax], [ymin, ymax]])
+        heatmap_data = heatmap_data/frame_rate
+
+        im = axs[1].imshow(
+                heatmap_data.T,
+                cmap='viridis',
+                interpolation=None,
+                origin='upper',
+                aspect='auto',
+                extent=[xmin, xmax, ymax, ymin]
+            )
+        fig.colorbar(im, ax=axs[1], label='Seconds')
+        if outline_x is not None and outline_y is not None:
+            axs[1].plot(outline_x, outline_y, 'r-', lw=2, label='Maze outline')
+        axs[1].set_title('Occupancy full session')
+        axs[1].set_aspect('equal')
+
         # Plot HD
         # Obtaining hd for this triald calculating how much the animal sampled in each bin
         num_bins = 24
@@ -106,13 +140,13 @@ def plot_ratemaps_and_hd(derivatives_base, frame_rate = 25, sample_rate = 30000)
 
         # Calculating directional firing rate
         direction_firing_rate = np.divide(counts, occupancy_time, out=np.full_like(counts, 0, dtype=float), where=occupancy_time!=0)
-        fig.delaxes(axs[1])
-        axs[1] = fig.add_subplot(1,2,2, polar=True)
+        fig.delaxes(axs[2])
+        axs[2] = fig.add_subplot(1,3,3, polar=True)
 
         # Plotting
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
         width = np.diff(bin_centers)[0]
-        axs[1].bar(
+        axs[2].bar(
             bin_centers,
             direction_firing_rate,
             width=width,
@@ -121,6 +155,8 @@ def plot_ratemaps_and_hd(derivatives_base, frame_rate = 25, sample_rate = 30000)
         )
 
         output_path = os.path.join(output_folder, f"unit_{unit_id}_rm_hd.png")
+        
+        
         plt.savefig(output_path)
         plt.close(fig)
     print(f"Saved plots to {output_folder}")
@@ -128,7 +164,7 @@ def plot_ratemaps_and_hd(derivatives_base, frame_rate = 25, sample_rate = 30000)
         
 
 if __name__ == "__main__":
-    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
+    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-003_id-2F\ses-01_date-17092025\all_trials"
     plot_ratemaps_and_hd(derivatives_base)
 
 

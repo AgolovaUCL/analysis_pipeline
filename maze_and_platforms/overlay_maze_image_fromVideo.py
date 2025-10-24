@@ -6,7 +6,7 @@ import cv2
 import json
 import glob
 
-def overlay_maze_image(derivatives_base, rawsession_folder):
+def overlay_maze_image(derivatives_base, rawsession_folder, method):
     """
     In the code files, there's an image saved where all maze platforms are up. This function overlays the hex grid
     on top of that image to show the maze layout
@@ -18,23 +18,23 @@ def overlay_maze_image(derivatives_base, rawsession_folder):
     
     """
     # Getting image
-    """
-    pattern = "T*.avi"
-    files = glob.glob(os.path.join(rawsession_folder, 'tracking', pattern))
+    if method == "video":
+        pattern = "T*.avi"
+        files = glob.glob(os.path.join(rawsession_folder, 'tracking', pattern))
 
-    video_path = files[0]
-    cap = cv2.VideoCapture(video_path)
+        video_path = files[0]
+        cap = cv2.VideoCapture(video_path)
 
-    ret, img = cap.read()   # img will hold the first frame as a NumPy array
-    cap.release()
-    if not ret:
-        print("Failed to read first frame")
+        ret, img = cap.read()   # img will hold the first frame as a NumPy array
+        cap.release()
+        if not ret:
+            print("Failed to read first frame")
 
-    cap.release()
-    """
-    img_path = r"C:\Users\Sophia\Documents\analysis_pipeline\code\config_files\camera_image.png"
-    img = cv2.imread(img_path)
-    
+        cap.release()
+    elif method == "image":
+        img_path = r"C:\Users\Sophia\Documents\analysis_pipeline\code\config_files\camera_image.png"
+        img = cv2.imread(img_path)
+
     # Output folder
     output_path = os.path.join(derivatives_base, "analysis", "maze_overlay", "maze_overlay.png")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -91,7 +91,7 @@ def overlay_maze_image(derivatives_base, rawsession_folder):
     else:
         print("Overlay not approved. Adjust parameters in overlay_maze_image_fromVideo function")
         print('Spatial processing pipeline will assign platforms to positional csvs.\n ')
-    return good_overlay
+    return good_overlay, img
 
 def makefig(angle, radius, hcoord_translated, vcoord_translated, img, output_path):# Create the figure and axis
     fig, ax = plt.subplots(1, figsize=(10, 10))

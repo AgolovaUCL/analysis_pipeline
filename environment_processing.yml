@@ -245,7 +245,6 @@ dependencies:
   - pyopengl=3.1.9=pyhd8ed1ab_0
   - pyparsing=3.2.3=pyhe01879c_2
   - pyproject_hooks=1.2.0=pyhd8ed1ab_1
-  - pyqt=5.15.11=py312he11f4ca_1
   - pyqt5-sip=12.17.0=py312h275cf98_1
   - pysocks=1.7.1=pyh09c184e_7
   - pytables=3.10.2=py312h9577b93_2
@@ -350,6 +349,7 @@ dependencies:
       - beautifulsoup4==4.13.4
       - cartopy==0.25.0
       - cattrs==25.1.1
+      - cement==2.10.14
       - certifi==2025.7.14
       - cftime==1.6.4.post1
       - contourpy==1.3.2
@@ -376,6 +376,7 @@ dependencies:
       - napari-video==0.2.10
       - neo==0.14.2
       - nixio==1.5.4
+      - nose==1.3.7
       - numcodecs==0.15.1
       - opencv-python==4.12.0.88
       - opencv-python-headless==4.12.0.88
@@ -383,9 +384,12 @@ dependencies:
       - pandas==2.2.3
       - probeinterface==0.2.28
       - psutil==7.0.0
+      - pycircstat==0.0.2
       - pydap==3.5.5
       - pyerfa==2.0.1.5
       - pyproj==3.7.1
+      - pyqt5==5.15.10
+      - pyqt5-qt5==5.15.2
       - pyshp==2.3.1
       - python-rapidjson==1.21
       - pyvideoreader==0.5.7

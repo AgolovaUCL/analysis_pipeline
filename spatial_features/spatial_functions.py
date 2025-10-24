@@ -18,16 +18,21 @@ def get_ratemaps(spikes, x, y, n: int, binsize = 15, stddev = 5, frame_rate = 25
         x_edges: edges of x bins
         y_edges: edges of y bins
     """
+    x_no_nan = x[~np.isnan(x)]
+    y_no_nan = y[~np.isnan(y)]
+    
     x_bins = np.arange(np.nanmin(x), np.nanmax(x) + binsize, binsize)
     y_bins = np.arange(np.nanmin(y), np.nanmax(y)+ binsize, binsize)
 
-    pos_binned, x_edges, y_edges = np.histogram2d(x, y, bins=[x_bins, y_bins])
+    pos_binned, x_edges, y_edges = np.histogram2d(x_no_nan, y_no_nan, bins=[x_bins, y_bins])
     pos_binned = pos_binned/frame_rate
     spikes = [np.int32(el) for el in spikes]
     
     spikes_x = x[spikes]
     spikes_y = y[spikes]
-    spikes_binned, _, _ = np.histogram2d(spikes_x, spikes_y, bins=[x_bins, y_bins])
+    spikes_x_no_nan = spikes_x[~np.isnan(spikes_x)]
+    spikes_y_no_nan = spikes_y[~np.isnan(spikes_y)]
+    spikes_binned, _, _ = np.histogram2d(spikes_x_no_nan, spikes_y_no_nan, bins=[x_bins, y_bins])
     
 
     g = cnv.Gaussian2DKernel(stddev, x_size=n, y_size=n)

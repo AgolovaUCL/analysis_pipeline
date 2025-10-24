@@ -64,9 +64,8 @@ def mrlRelDir(histCounts, xAxis, yAxis, histBinCenters):
             weights = histCounts[i, j, :]
             mrl[i, j] = resultant_vector_length(histBinCenters, w = weights)
             direction[i,j] = circmean(histBinCenters, weights = weights)
-            print(f"i: {i}, j: {j}, MRL: {mrl[i,j]}, direction: {direction[i,j]}")
+
     
-    breakpoint()
     # Flatten
     mrl_Lin = mrl.ravel()
     

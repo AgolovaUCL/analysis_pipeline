@@ -26,11 +26,11 @@ def run_spikewrap(derivatives_base, subject_path, session_name):
     and does not do CAR (common average reference) on the data.
     """
     session = sw.Session(
-        subject_path=subject_path,
-        session_name=session_name,
+        subject_path=subject_path, # path to rawdata/sub-001_id-XX
+        session_name=session_name, # For example, ses-01
         file_format="spikeglx",
         run_names="all",
-        output_path = derivatives_base,
+        output_path = os.path.join(derivatives_base, "ephys"),
     )
 
     session.preprocess(

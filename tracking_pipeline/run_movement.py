@@ -226,6 +226,7 @@ def run_movement(derivatives_base, trials_to_include, show_plots = False,  frame
 
         pattern = os.path.join(folder_directory, f"T{tr}_*.h5")
         matches = glob.glob(pattern)
+
         if len(matches) == 0:
             print(f"Error: no h5 file found for trial {tr}. Quiting movement")
             break

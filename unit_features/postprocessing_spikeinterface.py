@@ -41,11 +41,11 @@ def run_spikeinterface(derivatives_base, run_analyzer_from_memory = False, run_d
     
     """
     print("=== Running feature extraction in Spikeinterface ===")
-    recording_path = os.path.join(derivatives_base, "concat_run", "preprocessed", "traces_cached_seg0.raw")
-    probe_path =  os.path.join(derivatives_base, "concat_run", "preprocessed", "probe.json")
-    kilosort_output_path = os.path.join(derivatives_base, "concat_run","sorting", "sorter_output" )
+    recording_path = os.path.join(derivatives_base, "ephys",  "concat_run", "preprocessed", "traces_cached_seg0.raw")
+    probe_path =  os.path.join(derivatives_base, "ephys","concat_run", "preprocessed", "probe.json")
+    kilosort_output_path = os.path.join(derivatives_base,"ephys", "concat_run","sorting", "sorter_output" )
     unit_features_path = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features")
-    spikeinterface_recording_path = os.path.join(derivatives_base, "concat_run","sorting", "spikeinterface_recording.json" )
+    spikeinterface_recording_path = os.path.join(derivatives_base, "ephys","concat_run","sorting", "spikeinterface_recording.json" )
 
 
     kilosort_output_path = Path(kilosort_output_path)
@@ -92,6 +92,7 @@ def run_spikeinterface(derivatives_base, run_analyzer_from_memory = False, run_d
         offset_to_uV=offset_to_uV,
         num_channels = 384,
         )
+    
     # Obtaining trial duration
     total_samples = recording.get_num_frames()
     sampling_rate = recording.get_sampling_frequency()
@@ -223,8 +224,7 @@ def run_spikeinterface(derivatives_base, run_analyzer_from_memory = False, run_d
     for  unit_id in tqdm(unit_ids):
         label = labels[unit_id]
 
-        subdir = "good" if label == "good" else "mua"
-        output_dir = os.path.join(unit_features_path, "auto_and_wv", subdir)
+        output_dir = os.path.join(unit_features_path, "auto_and_wv")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
 
@@ -233,7 +233,7 @@ def run_spikeinterface(derivatives_base, run_analyzer_from_memory = False, run_d
 
 
         spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
-        if len(spike_train_unscaled) > 1000:
+        if len(spike_train_unscaled) > 10000:
             spike_train_unscaled = spike_train_unscaled[:int(1e4)]
             
         spike_train = np.float64(spike_train_unscaled/sampling_rate)
@@ -330,10 +330,10 @@ def interspike_histogram(spkTr1, spkTr2, maxInt):
     binwidth = maxInt / n_divisions
     bins = np.arange(-maxInt, maxInt + binwidth, binwidth)
     if nSpk == 0 or len(spkTr2) == 0:
-        # This is necessary for graceful failure when nSpk=0
+        # Failure for when 0 spikes
         counts = np.full_like(bins, np.nan)
     else:
-        # This is normal
+        # Otherwise
         counts, _ = np.histogram(int_matrix.flatten(), bins=bins)
 
     bin_centers = bins[:-1] + binwidth / 2

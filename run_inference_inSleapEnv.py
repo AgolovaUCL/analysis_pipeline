@@ -37,7 +37,10 @@ then just open a command line terminal activate the environment and type: python
 --------
 """
 
-def call_inference_on_all(derivatives_base, rawsession_folder, centroid_model_folder, centered_model_folder,  all_trials = True, ext=".avi"):
+def call_inference_on_all(derivatives_base, centroid_model_folder, centered_model_folder,  all_trials = True, ext=".avi"):
+    rawsession_folder = derivatives_base.replace("derivatives", "rawdata")
+    rawsession_folder = os.path.dirname(rawsession_folder)
+
     video_folder = os.path.join(rawsession_folder, 'tracking')
     dest_folder = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'inference_results')
     if not os.path.exists(dest_folder):
@@ -82,9 +85,9 @@ def call_inference(fpath, dest_folder, centered_model_folder, centroid_model_fol
 
 if __name__ == "__main__":
     # Currently running in sleap_new environment from Sopia's computer, and sleap environment on Eylon's
-    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-02_date-11092025\all_trials"
-    rawsession_folder = r"S:\Honeycomb_maze_task\rawdata\sub-002_id-1R\ses-02_date-11092025"
+    #derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-003_id-2F\ses-02_date-18092025\all_trials"
+    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-05_date-19092025\all_trials"
     centroid_model_folder = r"\\ceph-gw02.hpc.swc.ucl.ac.uk\okeefe\Eylon\SLEAP_NEWCAMERA_21072025\models\latest_model\251003_111713.centroid.n=2405"
     centered_model_folder = r"\\ceph-gw02.hpc.swc.ucl.ac.uk\okeefe\Eylon\SLEAP_NEWCAMERA_21072025\models\251003_132856.centered_instance.n=2405"
     all_trials = True  # If you just want to test run it, then set this to False
-    call_inference_on_all(derivatives_base, rawsession_folder, centroid_model_folder, centered_model_folder, all_trials = all_trials)
+    call_inference_on_all(derivatives_base, centroid_model_folder, centered_model_folder, all_trials = all_trials)

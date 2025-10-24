@@ -6,7 +6,7 @@ import cv2
 import matplotlib.pyplot as plt
 import json 
 
-def get_limits(derivatives_base, rawsession_folder):
+def get_limits(derivatives_base):
     """
     This function gets the limits for field on which the consinks will be placed.
 
@@ -19,6 +19,8 @@ def get_limits(derivatives_base, rawsession_folder):
         derivatives_base\analysis\maze_overlay\limits.json - json with limits
         
     """
+    rawsession_folder = derivatives_base.replace(r"\derivatives", r"\rawdata")
+    rawsession_folder = os.path.dirname(rawsession_folder)
     # Getting image
     pattern = "T*.avi"
     files = glob.glob(os.path.join(rawsession_folder, 'tracking', pattern))
@@ -38,12 +40,13 @@ def get_limits(derivatives_base, rawsession_folder):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     
     good_limits = False
- 
+    
+    height, width, channels = img.shape
     # Default parameters
-    xmin = 491
-    xmax = 2176
-    ymin = 194
-    ymax = 1702   
+    xmin = 0
+    xmax = width
+    ymin = 0
+    ymax = height
     while not good_limits:
         
         fig, ax = plt.subplots(1, figsize=(10, 10))
@@ -51,11 +54,11 @@ def get_limits(derivatives_base, rawsession_folder):
         
         # Display the image
         ax.imshow(img, cmap='gray')  
-        
-        ax.vlines(x = xmin, ymin = ymin, ymax = ymax, color = 'r')
-        ax.vlines(x = xmax, ymin = ymin, ymax = ymax, color = 'r')
-        ax.hlines(y=ymin, xmin=xmin, xmax=xmax,  color='r')
-        ax.hlines(y=ymax, xmin=xmin, xmax=xmax,  color='r')
+
+        ax.vlines(x = xmin + 1, ymin = ymin + 1, ymax = ymax, color = 'r')
+        ax.vlines(x = xmax, ymin = ymin + 1, ymax = ymax, color = 'r')
+        ax.hlines(y=ymin + 1, xmin=xmin + 1, xmax=xmax,  color='r')
+        ax.hlines(y=ymax, xmin=xmin + 1, xmax=xmax,  color='r')
         
         print("If you want to define new limits, click on the top left and then the bottom right of it")
         print("If you're happy with the limits, press escape")
@@ -105,6 +108,6 @@ def get_limits(derivatives_base, rawsession_folder):
         
 
 if __name__ == "__main__":
-    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
-    rawsession_folder = r"S:\Honeycomb_maze_task\rawdata\sub-002_id-1R\ses-01_date-10092025"    
-    get_limits(derivatives_base, rawsession_folder)
+    #derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-003_id-2F\ses-01_date-17092025\all_trials"
+    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"    
+    get_limits(derivatives_base)

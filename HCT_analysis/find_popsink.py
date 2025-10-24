@@ -18,12 +18,14 @@ from matplotlib.patches import RegularPolygon
 from tqdm import tqdm
 matplotlib.use("TkAgg")
 
-def calculate_popsink(derivatives_base, only_good_units = False, frame_rate = 25, sample_rate = 30000, code_to_run = []):
+def calculate_popsink(derivatives_base,  unit_type, title = 'Population Sink', frame_rate = 25, sample_rate = 30000, code_to_run = []):
     """
     calculates the population sink for the whole trial, for units split into goal 1 and units split into goal 2
     
     NOTE: Again, reldirdist can be calulcated two ways: per goal or for full trial. I have to try both methods!!!!!!
     """
+    if unit_type not in ['pyramidal', 'good', 'all']:
+        raise ValueError('unit type not correctly defined')
     rawsession_folder = derivatives_base.replace(r"\derivatives", r"\rawdata")
     rawsession_folder = os.path.dirname(rawsession_folder)
     goal_numbers = get_goal_numbers(derivatives_base)
@@ -37,18 +39,19 @@ def calculate_popsink(derivatives_base, only_good_units = False, frame_rate = 25
     )
     unit_ids = sorting.unit_ids
 
-    if only_good_units:
+    if unit_type == 'good':
+
         good_units_path = os.path.join(derivatives_base, "ephys", "concat_run", "sorting","sorter_output", "cluster_group.tsv")
         good_units_df = pd.read_csv(good_units_path, sep='\t')
         unit_ids = good_units_df[good_units_df['group'] == 'good']['cluster_id'].values
-        
+        print("Using all good units")
         # Loading pyramidal units
-        """
-        pyramidal_units_path = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features","all_units_overview", "pyramidal_units.csv")
+    elif unit_type == 'pyramidal':
+        pyramidal_units_path = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features","all_units_overview", "pyramidal_units_2D.csv")
+        print("Getting pyramidal units 2D")
         pyramidal_units_df = pd.read_csv(pyramidal_units_path)
         pyramidal_units = pyramidal_units_df['unit_ids'].values
-        good_units = pyramidal_units
-        """
+        unit_ids = pyramidal_units
 
     # Loading xy data
     pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'XY_HD_w_platforms.csv')
@@ -167,7 +170,7 @@ def calculate_popsink(derivatives_base, only_good_units = False, frame_rate = 25
         
         hcoord, vcoord = get_coords(derivatives_base)
         limits = get_limits_from_json(derivatives_base)
-        plot_popsink(mrls, coords, angles, goal_numbers, hcoord, vcoord,  limits, output_folder, plot_name='Population Sinks')
+        plot_popsink(mrls, coords, angles, goal_numbers, hcoord, vcoord,  limits, output_folder, plot_name=title)
         
         
 
@@ -230,5 +233,5 @@ def plot_popsink(mrls, coords, angles, goal_numbers, hcoord, vcoord,  limits, ou
 
 if __name__ == "__main__":
     derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
-    calculate_popsink(derivatives_base, only_good_units = True, code_to_run = [2], frame_rate = 25, sample_rate = 30000)
+    calculate_popsink(derivatives_base, unit_type = 'pyramidal', title = 'Pyramidal Consink New Timestamps', code_to_run = [1,2], frame_rate = 25, sample_rate = 30000)
     

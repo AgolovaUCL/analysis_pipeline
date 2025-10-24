@@ -3,24 +3,21 @@ import numpy as np
 import os
 import glob
 import pandas as pd
-import spikeinterface.extractors as se
-import matplotlib.pyplot as plt
-from tqdm import tqdm
-from scipy.ndimage import gaussian_filter
-import json
 import re
-
-import warnings
-from pathlib import Path
-
+import shutil
 
 
 def get_length_all_trials(rawsession_folder, trials_to_include):
+    """
+    Creates a file with the trial length for all the trials
+    Saves it to rawsession_folder/task_metadata/trails_length.csv
+    """
     ephys_path = os.path.join(rawsession_folder, 'ephys')
     output_folder = os.path.join(rawsession_folder, "task_metadata")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     output_path = os.path.join(output_folder, "trials_length.csv")
+
 
     # Step 1: Find all run folders (e.g., ses-01_g0, ses-01_g1, etc.)
     pattern = os.path.join(ephys_path, "ses*")
@@ -28,13 +25,28 @@ def get_length_all_trials(rawsession_folder, trials_to_include):
 
     print(f"Found {len(run_folders)} run folder(s) in {ephys_path}:\n")
 
+    for folder in run_folders:
+        base = os.path.basename(folder)
+        dir_parent = os.path.dirname(folder)
 
-    for idx, folder in enumerate(run_folders):
-        print(f"  {idx+1}. {folder}")
+        match = re.search(r'(ses[-_]\d+_g)(\d+)$', base)
+        if match:
+            prefix, num = match.groups()
+            new_name = f"{prefix}{int(num):02d}"  # pad to 2 digits (e.g. g00, g01, g10)
+            new_path = os.path.join(dir_parent, new_name)
+
+            if new_path != folder:
+                print(f"Renaming: {base} → {new_name}")
+                os.rename(folder, new_path)
+        else:
+            print(f"Skipping {base}: no match for 'g' number pattern.")
+        # -------------------------------------
+
+    # After renaming, update list of run_folders
+    run_folders = [folder for folder in glob.glob(pattern) if os.path.isdir(folder)]
 
     g_numbers = []
     trials_length = []
-
     # Step 2: Process each run folder
     for run_folder in run_folders:
 
@@ -43,6 +55,9 @@ def get_length_all_trials(rawsession_folder, trials_to_include):
         if match:
             group_number = int(match.group(1))
             g_numbers.append(group_number)
+            if len(g_numbers) > 1 and g_numbers[-2] > g_numbers[-1]:
+                raise ValueError(f"Error in g numbers, order is wrong. Do zero padding. g_numbers = {g_numbers}")
+
         else:
             print(f"  Warning: Could not extract group number from {basename}")
 
@@ -88,3 +103,7 @@ def get_length_all_trials(rawsession_folder, trials_to_include):
     trial_length_df.to_csv(output_path, index = False)
     print(f"Saved to {output_path}")
 
+if __name__ == "__main__":
+    rawsession_folder = r"\\ceph-gw02.hpc.swc.ucl.ac.uk\okeefe\Eylon\Data\Honeycomb_Maze_Task\rawdata\sub-003_id-2F\ses-01_date-17092025"
+    trials_to_include = np.arange(1,7)
+    get_length_all_trials(rawsession_folder, trials_to_include)

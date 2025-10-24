@@ -34,11 +34,19 @@ def classify_cells_2D(derivatives_base, analyse_only_good=True):
 
     # Filter to "good" units if needed
     if analyse_only_good:
+        
         labels_path = os.path.join(derivatives_base, "ephys", "concat_run", "sorting", "sorter_output", "cluster_group.tsv")
         labels_df = pd.read_csv(labels_path, sep="\t")
         good_units = labels_df[labels_df['group'] == 'good']['cluster_id'].values
         print(f"Number of good units: {len(good_units)}")
         df = df_wf[df_wf['unit_ids'].isin(good_units)].copy()
+        """
+        good_units_path = r"S:\Honeycomb_maze_task\rawdata\sub-003_id-2F\ses-01_date-17092025\task_metadata\good_unit_ids.csv"
+        good_units_df = pd.read_csv(good_units_path)
+        good_units = good_units_df['unit_ids']
+        good_units = np.array(good_units)
+        """
+
     else:
         df = df_wf.copy()
 
@@ -53,7 +61,6 @@ def classify_cells_2D(derivatives_base, analyse_only_good=True):
 
     # Run k-means
     centroids, labels = kmeans2(X, 2, minit='points')
-
     # Label assignment
     # Pyramidal cells → lower firing rate on average
     if centroids[0, 1] < centroids[1, 1]:
@@ -105,5 +112,5 @@ def classify_cells_2D(derivatives_base, analyse_only_good=True):
 
 
 if __name__ == "__main__":
-    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
+    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-03_date-17092025\all_trials"
     classify_cells_2D(derivatives_base, analyse_only_good=True)
