@@ -1,7 +1,7 @@
 import numpy as np
 import random
 import warnings
-
+import matplotlib.pyplot as plt
 def get_sig_cells(spike_train_this_epoch, hd_rad,epoch_start_frame, epoch_end_frame,  occupancy_time, n_bins = 24, frame_rate = 25, num_shifts = 1000):
     """
     Shuffles the data num_shifts time and calculates the MRLs
@@ -18,7 +18,6 @@ def get_sig_cells(spike_train_this_epoch, hd_rad,epoch_start_frame, epoch_end_fr
     
     """
     # Setting shift values
-    spike_train = np.array(spike_train)
     shift_min = 2*frame_rate # minimum shift: 2 second
     shift_max = np.int32(epoch_end_frame - epoch_start_frame) - 2*frame_rate # maximum shift: epoch length - 2 s
     
@@ -30,10 +29,13 @@ def get_sig_cells(spike_train_this_epoch, hd_rad,epoch_start_frame, epoch_end_fr
         shift_min = 0
 
     MRL_values = []
+    occupancy_time = np.nan_to_num(occupancy_time, nan=0.0)
 
-
-    current_data = spike_train_this_epoch
-
+    current_data = np.array(spike_train_this_epoch)
+    shift_value = []
+    
+    max_radians = []
+    val = 0
     
     for shift_idx in range(num_shifts):
         # Get random shift value
@@ -44,13 +46,13 @@ def get_sig_cells(spike_train_this_epoch, hd_rad,epoch_start_frame, epoch_end_fr
 
         range_min = np.int32(epoch_start_frame)
         range_max = np.int32(epoch_end_frame)
-        range_size = range_max - range_min + 1
+        range_size = range_max - range_min 
         
         # Ensure shifted_data stays within the range [range_min, range_max]
         shifted_data = np.mod(shifted_data - range_min, range_size) + range_min
 
         # Calculate angles_degrees and MRL
-        angles_radians= hd_rad[shifted_data]; 
+        angles_radians= hd_rad[shifted_data]
         mask = ~np.isnan(angles_radians)
         angles_radians= angles_radians[mask]
 
@@ -61,10 +63,22 @@ def get_sig_cells(spike_train_this_epoch, hd_rad,epoch_start_frame, epoch_end_fr
 
         MRL = resultant_vector_length(bin_centers, w = direction_firing_rate)
         MRL_values.append( MRL)
+        shift_value.append(random_shift)
+        if MRL > val:
+            val = MRL
+            max_radians = angles_radians
 
     perc_95_val = np.percentile(MRL_values, 95)
     perc_99_val = np.percentile(MRL_values, 99)
-    return perc_95_val, perc_99_val, MRL_values
+    fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
+
+    # Number of bins for angular resolution
+    n_bins = 20
+    ax.hist(max_radians, bins=n_bins, alpha=0.7)
+
+    ax.set_title("Polar plot of max_radians = angles_radians")
+    plt.show()
+    return perc_95_val, perc_99_val, MRL_values, shift_value
 
 
 def resultant_vector_length(alpha, w=None, d=None, axis=None,

@@ -37,12 +37,12 @@ rawsession_folder = os.path.dirname(rawsession_folder)
 task = 'hct' # hct or spatiotemp
 
 # Add platform coordinates to the center positional csv
-good_overlay, img = overlay_maze_image(derivatives_base, rawsession_folder, method = "video")
+#good_overlay, img = overlay_maze_image(derivatives_base, rawsession_folder, method = "video")
 
-if task == 'hct':
-    get_limits(derivatives_base)
+#if task == 'hct':
+    #get_limits(derivatives_base)
     
-plot_maze_outline(derivatives_base, img)
+#plot_maze_outline(derivatives_base, img)
 
 # run_movement gives us the xy coordinates and hd 
 #run_movement(derivatives_base, trials_to_include)
@@ -52,7 +52,7 @@ plot_maze_outline(derivatives_base, img)
 
 
 # combines all the positional csvs. Output: XY_HD_alltrials.csv, XY_HD_alltrials_center.csv (gives the center coordinates)
-combine_pos_csvs(derivatives_base, trials_to_include)
+#combine_pos_csvs(derivatives_base, trials_to_include)
 
 # Rate map + hd for each unit
 plot_ratemaps_and_hd(derivatives_base, unit_type = 'all')
@@ -60,20 +60,20 @@ plot_ratemaps_and_hd(derivatives_base, unit_type = 'all')
 # Spikecount over time for each unit
 #plot_spikecount_over_trials(derivatives_base, 'all', trials_to_include)
 
-breakpoint()
+
 # Combines autocorrelogram + wv, ratemap + hd, and spikecount over tiem map
 combine_autowv_ratemaps(derivatives_base, unit_type = 'all')
+if False:
+    if good_overlay == 'y' and task == 'hct':
+        # adds the platform to each position in alltrials_center.csv
+        add_platforms_to_csv(derivatives_base)
 
-if good_overlay == 'y' and task == 'hct':
-    # adds the platform to each position in alltrials_center.csv
-    add_platforms_to_csv(derivatives_base)
-
-elif task == 'spatiotemp':
-    plot_firing_each_epoch(derivatives_base, rawsession_folder, trials_to_include)
-    degrees_df_path, deg = make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include)
-    make_roseplots(derivatives_base, rawsession_folder, trials_to_include, deg, path_to_df = degrees_df_path)
-    sig_across_epochs(derivatives_base, trials_to_include) 
-else:
-    print("Overlay parameters were not accepted. Platforms will not be assigned to csv file.")
-    print("Adjust parameters in overlay_maze_image_fromVideo function to continue analysis.")
-    print("You can use maze_and_platforms\find_hexagon.ipynb for easier finding of the parameters")
+    elif task == 'spatiotemp':
+        plot_firing_each_epoch(derivatives_base, rawsession_folder, trials_to_include)
+        degrees_df_path, deg = make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include)
+        make_roseplots(derivatives_base, rawsession_folder, trials_to_include, deg, path_to_df = degrees_df_path)
+        sig_across_epochs(derivatives_base, trials_to_include) 
+    else:
+        print("Overlay parameters were not accepted. Platforms will not be assigned to csv file.")
+        print("Adjust parameters in overlay_maze_image_fromVideo function to continue analysis.")
+        print("You can use maze_and_platforms\find_hexagon.ipynb for easier finding of the parameters")

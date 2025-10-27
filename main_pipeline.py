@@ -1,6 +1,6 @@
 '''
 This script is the main pipeline used for the data analysis
-Prior to running, install the environment processing-pipeline (as can be found in environment.yml)
+Prior to running, install the environment processing-pipeline (as can be found in environment_processing.yml)
 
 '''
 
@@ -12,7 +12,6 @@ from preprocessing.get_length_all_trials import get_length_all_trials
 from other.append_config import append_config
 from other.find_paths import find_paths
 # basic processing preprocesses the data and makes spatial plots
-# For trials_to_exclude, use 1 based indexing!! (so g0 --> t1)
 
 # Currently using processing_pipeline, not processing_pipelin2
 r"""user = input("Please input user (Sophia: s, Eylon: e): ")
@@ -56,6 +55,7 @@ trial_numbers = [1,2]
 # === Finding the subject folder and session name ===
 derivatives_base, rawsession_folder, rawsubject_folder, session_name = find_paths(base_path, subject_number, session_number, trial_session_name)
 
+breakpoint()
 # === Adding data to config file ===
 config_data = {
     'inputs': {
@@ -73,8 +73,9 @@ config_data = {
 # Adding data to config file
 append_config(derivatives_base, config_data)
 
+
 # === Zero padding trials ===
-#zero_pad_trials(rawsession_folder)
+zero_pad_trials(rawsession_folder)
 
 
 # === Running Spikewrap preprocessing ===
