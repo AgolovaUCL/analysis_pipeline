@@ -58,7 +58,7 @@ task = 'hct' # hct or spatiotemp
 plot_ratemaps_and_hd(derivatives_base, unit_type = 'all')
 
 # Spikecount over time for each unit
-#plot_spikecount_over_trials(derivatives_base, 'all', trials_to_include)
+plot_spikecount_over_trials(derivatives_base, 'all', trials_to_include)
 
 
 # Combines autocorrelogram + wv, ratemap + hd, and spikecount over tiem map

@@ -15,7 +15,7 @@ from skimage.draw import disk
 from pathlib import Path
 from typing import Literal
 
-def plot_spikecount_over_trials(derivatives_base, unit_type: Literal['pyramidal', 'good', 'all'], trials_to_include, frame_rate = 25, sample_rate = 30000):
+def plot_spikecount_over_trials(derivatives_base, unit_type: Literal['pyramidal', 'good', 'all'], trials_to_include, task, frame_rate = 25, sample_rate = 30000):
     """For each unit, creates a plot of its spikecount throughout time.
     Also indicates the trials
 
@@ -59,6 +59,16 @@ def plot_spikecount_over_trials(derivatives_base, unit_type: Literal['pyramidal'
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
+    goal1_endtimes = None
+    if task == 'hct':
+        print("HCT: adding goal times to spikecount over trials")
+        trialday_path = os.path.join(rawsession_folder, 'behaviour', 'alltrials_trialday.csv')
+        trialday_df  = pd.read_csv(trialday_path)
+        if len(trialday_df) != len(trials_to_include):
+            raise ValueError("length alltrials_trialday.csv is not the same as length trials to include. Remove unneeded trials")
+        else:
+            goal1_endtimes = np.array(trialday_df['Goal 1 end'])
+            
     # Loading data
     print("Plotting spikecount over trials")
     for unit_id in tqdm(unit_ids): 
