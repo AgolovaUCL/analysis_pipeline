@@ -58,11 +58,11 @@ task = 'hct' # hct or spatiotemp
 plot_ratemaps_and_hd(derivatives_base, unit_type = 'all')
 
 # Spikecount over time for each unit
-plot_spikecount_over_trials(derivatives_base, 'all', trials_to_include)
+#plot_spikecount_over_trials(derivatives_base, 'all', trials_to_include, task = task)
 
 
 # Combines autocorrelogram + wv, ratemap + hd, and spikecount over tiem map
-combine_autowv_ratemaps(derivatives_base, unit_type = 'all')
+#combine_autowv_ratemaps(derivatives_base, unit_type = 'all')
 if False:
     if good_overlay == 'y' and task == 'hct':
         # adds the platform to each position in alltrials_center.csv

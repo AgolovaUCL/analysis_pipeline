@@ -326,12 +326,16 @@ def recalculate_consink_to_all_candidates_from_translation(spiketrain, dlc_data,
 
 
     
-def main(derivatives_base, rawsession_folder, code_to_run = [], frame_rate = 25, sample_rate = 30000):
+def main(derivatives_base, unit_type,  code_to_run = [], frame_rate = 25, sample_rate = 30000):
     """
     Code to find consinks, based on Jake's code
 
 
     """
+    if unit_type not in ['pyramidal', 'good', 'all']:
+        raise ValueError('unit type not correctly defined')
+    rawsession_folder = derivatives_base.replace(r"\derivatives", r"\rawdata")
+    rawsession_folder = os.path.dirname(rawsession_folder)
     
     # Loading limits
     x_min, x_max, y_min, y_max = get_limits_from_json(derivatives_base)
@@ -341,20 +345,24 @@ def main(derivatives_base, rawsession_folder, code_to_run = [], frame_rate = 25,
     sorting = se.read_kilosort(
         folder_path = kilosort_output_path
     )
-    #unit_ids = sorting.unit_ids
 
-    # Loading good units
-    good_units_path = os.path.join(derivatives_base, "ephys", "concat_run", "sorting","sorter_output", "cluster_group.tsv")
-    good_units_df = pd.read_csv(good_units_path, sep='\t')
-    good_units = good_units_df[good_units_df['group'] == 'good']['cluster_id'].values
-    
-    # Loading pyramidal units
-    """
-    pyramidal_units_path = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features","all_units_overview", "pyramidal_units.csv")
-    pyramidal_units_df = pd.read_csv(pyramidal_units_path)
-    pyramidal_units = pyramidal_units_df['unit_ids'].values
-    good_units = pyramidal_units
-    """
+    unit_ids = sorting.unit_ids
+
+    if unit_type == 'good':
+
+        good_units_path = os.path.join(derivatives_base, "ephys", "concat_run", "sorting","sorter_output", "cluster_group.tsv")
+        good_units_df = pd.read_csv(good_units_path, sep='\t')
+        unit_ids = good_units_df[good_units_df['group'] == 'good']['cluster_id'].values
+        print("Using all good units")
+        # Loading pyramidal units
+    elif unit_type == 'pyramidal':
+        pyramidal_units_path = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features","all_units_overview", "pyramidal_units_2D.csv")
+        print("Getting pyramidal units 2D")
+        pyramidal_units_df = pd.read_csv(pyramidal_units_path)
+        pyramidal_units = pyramidal_units_df['unit_ids'].values
+        unit_ids = pyramidal_units
+        
+        
     # Loading xy data
     pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'XY_HD_alltrials.csv')
     pos_data = pd.read_csv(pos_data_path)
@@ -419,7 +427,7 @@ def main(derivatives_base, rawsession_folder, code_to_run = [], frame_rate = 25,
 
     if 0 in code_to_run:
         print("Calculating consinks")
-        for unit_id in tqdm(good_units):
+        for unit_id in tqdm(unit_ids):
             consinks[unit_id] = {'unit_id': unit_id}
 
             for g in [1, 2]:
@@ -484,7 +492,7 @@ def main(derivatives_base, rawsession_folder, code_to_run = [], frame_rate = 25,
             consinks_df.insert(idx_g2 + 1, 'ci_95_g2', np.nan)
             consinks_df.insert(idx_g2 + 2, 'ci_999_g2', np.nan)
 
-        for unit_id in tqdm(good_units):
+        for unit_id in tqdm(unit_ids):
             for g in [1,2]:
                 if g == 1:
                     reldir_occ_by_pos_cur = reldir_occ_by_pos_g1

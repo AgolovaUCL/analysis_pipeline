@@ -1,20 +1,21 @@
+
+from matplotlib.widgets import PolygonSelector
+from matplotlib.path import Path
 import numpy as np
 import os
-import glob
 import pandas as pd
 import spikeinterface.extractors as se
 import matplotlib.pyplot as plt
-from tqdm import tqdm
-from spatial_features.spatial_functions import get_ratemaps
-from spatial_features.get_sig_cells import get_sig_cells
+from spatial_functions import get_ratemaps
+from get_sig_cells import get_sig_cells
 import json
-from typing import Literal
 import warnings
 from astropy.stats import circmean
 
-def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good', 'all'],  frame_rate = 25, sample_rate = 30000):
+def plot_rmap_interactive(derivatives_base, unit_id,  frame_rate = 25, sample_rate = 30000):
     """ 
-    Makes a plot for each unit with its ratemap (left) and directional firing rate (right)
+    Makes a plot for each unit with its ratemap (left), occupancy (middle) and directional firing rate (right).
+    User adjustable
 
     Inputs: derivatives base
     
@@ -24,19 +25,7 @@ def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good
     sorting = se.read_kilosort(
         folder_path = kilosort_output_path
     )
-    unit_ids = sorting.unit_ids
-
-    if unit_type == 'good':
-        good_units_path = os.path.join(derivatives_base, "ephys", "concat_run", "sorting","sorter_output", "cluster_group.tsv")
-        good_units_df = pd.read_csv(good_units_path, sep='\t')
-        unit_ids = good_units_df[good_units_df['group'] == 'good']['cluster_id'].values
-        print("Using all good units")
-    elif unit_type == 'pyramidal':
-        pyramidal_units_path = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features","all_units_overview", "pyramidal_units_2D.csv")
-        pyramidal_units_df = pd.read_csv(pyramidal_units_path)
-        pyramidal_units = pyramidal_units_df['unit_ids'].values
-        unit_ids = pyramidal_units
-    
+   
     
     # Limits
     limits_path = os.path.join(derivatives_base, "analysis", "maze_overlay", "limits.json")
@@ -60,6 +49,7 @@ def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good
         print("⚠️ Maze outline JSON not found; skipping red outline overlay.")
         outline_x, outline_y = None, None
         
+    
     # Get directory for the positional data
     pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'XY_HD_alltrials.csv')
     pos_data = pd.read_csv(pos_data_path)
@@ -68,11 +58,6 @@ def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good
     y = pos_data.iloc[:, 1].to_numpy()
     hd = pos_data.iloc[:, 2].to_numpy()
     
-    # output folder
-    output_folder = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'spatial_features', 'ratemaps_and_hd')
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-        
         
     # Loop over units
     print("Plotting ratemaps and hd")
@@ -85,19 +70,38 @@ def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good
     occupancy_time = occupancy_counts / frame_rate 
 
 
-    for unit_id in tqdm(unit_ids):
-        # Load spike data
-        spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
-        spike_train_pre = np.round(spike_train_unscaled*frame_rate/sample_rate) # trial data is now in frames in order to match it with xy data
-        spike_train = [np.int32(el) for el in spike_train_pre if el < len(x)]  # Ensure spike train is within bounds of x and y
+    # Load spike data
+    spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
+    spike_train_pre = np.round(spike_train_unscaled*frame_rate/sample_rate) # trial data is now in frames in order to match it with xy data
+    spike_train = [np.int32(el) for el in spike_train_pre if el < len(x)]  # Ensure spike train is within bounds of x and y
+    
+    input = 'c'
+    
+    mask = None 
+    
+    # Get original ratemap
+    rmap, x_edges, y_edges = get_ratemaps(spike_train, x, y, 3, binsize=36, stddev=25)
+    
+    x_bin = np.digitize(x, x_edges) - 1
+    y_bin = np.digitize(y, y_edges) - 1
+    
+    mask_x = np.isnan(x)
+    mask_y = np.isnan(y)
+    
+    y_bin[mask_y] = -1
+    x_bin[mask_x] = -1
+    
+    pos_data['x_bin'] = x_bin
+    pos_data['y_bin'] = y_bin
+     
+    while input != 'q':
         # Make plot
         fig, axs = plt.subplots(1, 3, figsize = [15, 5])
         axs = axs.flatten()
         fig.suptitle(f"Unit {unit_id}", fontsize = 18)
 
-        # Plot ratemap
-        rmap, x_edges, y_edges = get_ratemaps(spike_train, x, y, 3, binsize=36, stddev=25)
-            
+        # ====== Plot ratemap ======
+
         im = axs[0].imshow(rmap.T, 
                 cmap='viridis', 
                 interpolation = None,
@@ -105,45 +109,62 @@ def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good
                 aspect='auto', 
                 extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]])
 
+
         axs[0].set_title(f"n = {len(spike_train)}")
         axs[0].set_xlim(xmin, xmax)
         axs[0].set_ylim(ymax, ymin)
         axs[0].set_aspect('equal')
         if outline_x is not None and outline_y is not None:
                 axs[0].plot(outline_x, outline_y, 'r-', lw=2, label='Maze outline')
+        #fig.colorbar(im, ax=axs[0], label='Firing rate')
         fig.colorbar(im, ax=axs[0], label='Firing rate')
 
-    
-        # 2. Plot occupancy
-        x_no_nan =  x[~pd.isna(x)]
-        y_no_nan = y[~pd.isna(y)]
-        heatmap_data, xbins, ybins  = np.histogram2d(x_no_nan, y_no_nan, bins=30, range=[[xmin, xmax], [ymin, ymax]])
-        heatmap_data = heatmap_data/frame_rate
+        # 2. spikemap
+        if mask is not None:
+            xsize, ysize = mask.shape
+            spike_train_filt = []
+            for s in spike_train:
+                indx = x_bin[s]
+                indy = y_bin[s]
+                if indx < xsize and indy < ysize and mask[indx, indy]:
+                    spike_train_filt.append(s)
+        else:
+            spike_train_filt = spike_train
+            
+        is_filt = np.isin(spike_train, spike_train_filt)
 
-        hm_nozero = heatmap_data[heatmap_data != 0]
-        mean_hm = np.mean(hm_nozero)
-        std_hm = np.std(hm_nozero)
-        
-        threshold = mean_hm + std_hm
-        heatmap_data[heatmap_data > threshold] = 0
 
-        im = axs[1].imshow(
-                heatmap_data.T,
-                cmap='viridis',
-                interpolation=None,
-                origin='upper',
-                aspect='auto',
-                extent=[xmin, xmax, ymax, ymin]
-            )
-        fig.colorbar(im, ax=axs[1], label='Seconds')
-        if outline_x is not None and outline_y is not None:
-            axs[1].plot(outline_x, outline_y, 'r-', lw=2, label='Maze outline')
-        axs[1].set_title('Occupancy full session')
+        x_spikes = x[spike_train]
+        y_spikes = y[spike_train]
+        hd_spikes = hd[spike_train]
+
+
+        valid = ~np.isnan(x_spikes) & ~np.isnan(y_spikes) & ~np.isnan(hd_spikes)
+        x_spikes = x_spikes[valid]
+        y_spikes = y_spikes[valid]
+        hd_spikes = hd_spikes[valid]
+        is_filt = is_filt[valid]  
+
+        u = np.cos(np.deg2rad(hd_spikes))
+        v = np.sin(np.deg2rad(hd_spikes))
+
+        # Assign colors efficiently
+        colors = np.where(is_filt, 'blue', 'red')
+
+        # Plot
+        axs[1].quiver(x_spikes, y_spikes, u, v, color=colors, scale = 30)
+        axs[1].set_xlim(xmin, xmax)
+        axs[1].set_ylim(ymax, ymin)
         axs[1].set_aspect('equal')
-
+        if outline_x is not None and outline_y is not None:
+                axs[1].plot(outline_x, outline_y, 'r-', lw=2, label='Maze outline')
+        
         # Plot HD
         # Getting the spike times and making a histogram of them
-        spikes_hd = hd[spike_train]
+        
+
+        
+        spikes_hd = hd[spike_train_filt]
         spikes_hd = spikes_hd[~np.isnan(spikes_hd)]
         spikes_hd_rad = np.deg2rad(spikes_hd)
         counts, bin_edges = np.histogram(spikes_hd_rad, bins=num_bins,range = [-np.pi, np.pi] )
@@ -192,27 +213,56 @@ def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good
             axs[2].text(0.05, 1.05, text, transform=axs[2].transAxes)
             axs[2].legend(loc='upper right', bbox_to_anchor=(1.2, 1.1))
 
+        axs[2].set_title(f'n (in region): {len(spike_train_filt)}')
+        
+        plt.tight_layout()
+        plt.show(block=False)   # show figure but don’t block execution yet
 
-        #axs[2].text(180, np.nanmax(direction_firing_rate) * 1.5, text)
-            print(f'angle = {np.rad2deg(angle)}')
-        output_path = os.path.join(output_folder, f"unit_{unit_id}_rm_hd.png")
-        
-        plt.show()
-        plt.savefig(output_path)
-        plt.close(fig)
-        if False:
-            try:
-                plt.hist(MRL_values, bins = 30, color = 'lightblue')
-                plt.axvline(x = perc_95, color = 'b', label = '95th perc')
-                plt.axvline(x = perc_99, color = 'g', label  = '99th perc')
-                plt.axvline(x = MRL, color = 'r', label = 'MRL')
-                plt.legend()
-                plt.show()
-            except:
-                print("skipping")
-        
-    
-    print(f"Saved plots to {output_folder}")
+        # Now let the user draw on the ratemap (axs[0])
+        mask = select_region(rmap, axs[0], x_edges, y_edges)
+        inside_coords = np.argwhere(mask)
+        print("Number of points inside polygon:", inside_coords.shape[0])
+
+
+def select_region(data, ax, x_edges, y_edges):
+    """
+    Allows the user to draw a polygon on the given Axes and returns a boolean mask
+    for the region inside the polygon (same shape as `data`).
+    """
+
+    mask_container = {'done': False, 'mask': None}
+
+    def onselect(verts):
+
+        ny, nx = data.shape
+        x_lin = np.linspace(x_edges[0], x_edges[-1], ny)  # ny instead of nx
+        y_lin = np.linspace(y_edges[0], y_edges[-1], nx)  # nx instead of ny
+        X, Y = np.meshgrid(x_lin, y_lin)
+
+        points = np.vstack((X.ravel(), Y.ravel())).T
+        path = Path(verts)
+        mask = path.contains_points(points).reshape((nx, ny)).T  # transpose back
+        mask_container['mask'] = mask
+        mask_container['done'] = True
+
+        ax.contour(mask, colors='r', linewidths=0.8)
+        plt.draw()
+
+        selector.disconnect_events()
+        plt.close()
+
+    selector = PolygonSelector(ax, onselect, props=dict(color='r', linewidth=2, alpha=0.6))
+
+    print("Draw your polygon on the ratemap (double-click to close it)...")
+    plt.show(block=True)
+
+    # Wait until user finishes
+    while not mask_container['done']:
+        plt.pause(0.1)
+
+    return mask_container['mask']
+
+
         
 def resultant_vector_length(alpha, w=None, d=None, axis=None,
                             axial_correction=1, ci=None, bootstrap_iter=None):
@@ -272,9 +322,11 @@ def _complex_mean(alpha, w=None, axis=None, axial_correction=1):
     return ((w * np.exp(1j * alpha * axial_correction)).sum(axis=axis) /
             np.sum(w, axis=axis))       
 
-if __name__ == "__main__":
-    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-003_id-2F\ses-01_date-17092025\all_trials"
-    plot_ratemaps_and_hd(derivatives_base)
 
+
+if __name__ == "__main__":
+    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
+    unit_id = 23
+    plot_rmap_interactive(derivatives_base, unit_id)
 
 

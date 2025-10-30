@@ -226,11 +226,13 @@ def get_relative_direction_occupancy_by_position(pos_data, limits, n_dir_bins = 
     x_bins, y_bins = get_xy_bins(limits, n_bins=100)
 
     # candidate consink positions will be at bin centres
+    # get_og_bins just adjusts the last bin a bit, doesn't really do anything for us
     x_bins_og = get_og_bins(x_bins)
     y_bins_og = get_og_bins(y_bins)
 
     bins = {'x': x_bins_og, 'y': y_bins_og}
 
+    # sink position in centres
     x_sink_pos = x_bins_og[0:-1] + np.diff(x_bins_og)/2
     y_sink_pos = y_bins_og[0:-1] + np.diff(y_bins_og)/2
 
@@ -255,7 +257,8 @@ def get_relative_direction_occupancy_by_position(pos_data, limits, n_dir_bins = 
     y = y[~mask]
     hd = hd[~mask]
 
-    x_bin = np.digitize(x, x_bins) - 1
+    # Binning data and making it 0 indexing based
+    x_bin = np.digitize(x, x_bins) - 1 
     # find x_bin == n_x_bins, and set it to n_x_bins - 1
     x_bin[x_bin == n_x_bins] = n_x_bins - 1 
 
@@ -263,6 +266,7 @@ def get_relative_direction_occupancy_by_position(pos_data, limits, n_dir_bins = 
     y_bin[y_bin == n_y_bins] = n_y_bins - 1
 
 
+    # Going over positional bins
     for i in range(np.max(x_bin)+1):
         for j in range(np.max(y_bin)+1):
             # get the indices where x_bin == i and y_bin == j
@@ -283,7 +287,8 @@ def get_relative_direction_occupancy_by_position(pos_data, limits, n_dir_bins = 
             for i2, x_sink in enumerate(x_sink_pos):
                 for j2, y_sink in enumerate(y_sink_pos):
                 
-                    # get directions to sink                    
+                    # get directions to sink  
+                    # NOTE: direction function works well (Sophia)                  
                     directions = get_directions_to_position([x_sink, y_sink], positions)
                     
                     # get the relative direction

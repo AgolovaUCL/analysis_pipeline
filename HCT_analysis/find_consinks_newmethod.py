@@ -119,11 +119,14 @@ def rel_dir_ctrl_distribution_all_sinks(spike_train, reldir_occ_by_pos, sink_bin
             # get the indices where x_bin == i and y_bin == j
             indices = np.where((x_bin == i) & (y_bin == j))[0]
 
+            # Number of spikes this cell fired in the bin
             n_spikes = len(indices)
             if n_spikes == 0:
                 continue
+            # number of spikes cell fired in total so far
             n_spikes_total = n_spikes_total + n_spikes
 
+            # Add (n_y_sinks, n_x_sinks, n_dir_bins)*n_spikes (scale by how many spikes are fired there)
             rel_dir_ctrl_dist = rel_dir_ctrl_dist + reldir_occ_by_pos[j,i,:,:,:] * n_spikes
 
     return rel_dir_ctrl_dist, n_spikes_total
@@ -344,8 +347,9 @@ def main(derivatives_base, rel_dir_occ: Literal['all trials', 'intervals'], unit
     rawsession_folder = derivatives_base.replace(r"\derivatives", r"\rawdata")
     rawsession_folder = os.path.dirname(rawsession_folder)
     
-    # Loading limits
+    # Loading limits (currently just the whole camera view)
     x_min, x_max, y_min, y_max = get_limits_from_json(derivatives_base)
+    limits = get_axes_limits(x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max)
     
     # Loading spike data
     kilosort_output_path = os.path.join(derivatives_base, "ephys", "concat_run","sorting", "sorter_output" )
@@ -393,21 +397,19 @@ def main(derivatives_base, rel_dir_occ: Literal['all trials', 'intervals'], unit
         name = 'XY_HD_alltrials.csv'
     elif rel_dir_occ == 'intervals':
         name = 'XY_HD_allintervals.csv'
-    
     pos_data_reldir_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', name)
     pos_data_reldir = pd.read_csv(pos_data_reldir_path)
    
     if np.nanmax(pos_data_reldir['hd']) > 2* np.pi + 0.1: # Check if angles are in radians
         pos_data_reldir['hd'] = np.deg2rad(pos_data_reldir['hd']) 
-    # get x and y limits
-    limits = get_axes_limits(x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max)
+    
 
     # output folder
     output_folder = os.path.join(derivatives_base, 'analysis', 'cell_characteristics',  'spatial_features', 'consink_data_newmethod')
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    # Direction bins
+    # Direction bins (from -pi to pi)
     direction_bins = get_direction_bins(n_bins=12)
 
     # Loading or creating data 
@@ -453,11 +455,14 @@ def main(derivatives_base, rel_dir_occ: Literal['all trials', 'intervals'], unit
                     
                 # Find spiketrain
                 spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
-                spike_train_secs = spike_train_unscaled / sample_rate
+                spike_train_secs = spike_train_unscaled / sample_rate # This is in seconds now
+                # Restrict spiketrain to goal
                 spike_train_secs_g = restrict_spiketrain_specialbehav(spike_train_secs, rawsession_folder, goal=g)
+                # Now let spiketrain be in frame_rate
                 spike_train = np.round(spike_train_secs_g * frame_rate)
                 spike_train = [np.int32(el) for el in spike_train if el < len(pos_data)]  
 
+                # Skip empty spikes
                 if len(spike_train) == 0:
                     continue
                 

@@ -70,14 +70,15 @@ def get_sig_cells(spike_train_this_epoch, hd_rad,epoch_start_frame, epoch_end_fr
 
     perc_95_val = np.percentile(MRL_values, 95)
     perc_99_val = np.percentile(MRL_values, 99)
-    fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
+    if False:
+        fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
 
-    # Number of bins for angular resolution
-    n_bins = 20
-    ax.hist(max_radians, bins=n_bins, alpha=0.7)
+        # Number of bins for angular resolution
+        n_bins = 20
+        ax.hist(max_radians, bins=n_bins, alpha=0.7)
 
-    ax.set_title("Polar plot of max_radians = angles_radians")
-    plt.show()
+        ax.set_title("Polar plot of max_radians = angles_radians")
+        plt.show()
     return perc_95_val, perc_99_val, MRL_values, shift_value
 
 

@@ -1,10 +1,10 @@
 import os
 import numpy as np
 import pandas as pd
-
+from matplotlib.path import Path
 import matplotlib.pyplot as plt
 import json
-
+from add_platforms_any_df import add_platforms_to_csv
 def restrict_posdata_specialbehav(pos_data, derivatives_base, rawsession_folder,  frame_rate = 25):
     """
     Restricts the pos_data to the intervals of the goal.
@@ -79,10 +79,14 @@ def restrict_posdata_specialbehav(pos_data, derivatives_base, rawsession_folder,
         df_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', f'XY_HD_goal{goal}_trials.csv')
         df_goal = pd.read_csv(df_path)
         df_restricted_all = pd.concat([df_restricted_all, df_goal])
+        df_restricted_all = df_restricted_all.sort_values(by='frame').reset_index(drop=True)
+
+    print("Adding platforms to interval df")
+    df_restricted_all = add_platforms_to_csv(df_restricted_all, derivatives_base)
     output_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'XY_HD_allintervals.csv')
-    df_restricted_all.to_csv(output_path)
+    df_restricted_all.to_csv(output_path, index = False)
     
-    fig, ax = plt.subplots(1, 5, figsize=(30, 6))
+    fig, ax = plt.subplots(1, 5, figsize=(30, 4))
     ax = ax.flatten()
     
     for i, goal in enumerate([0,1,2, 3, 4]):

@@ -115,7 +115,14 @@ def plot_spikecount_over_trials(derivatives_base, unit_type: Literal['pyramidal'
             mid = (start + end) / 2
             plt.text(mid, label_y, f'Trial {i+1}',
                     ha='center', va='top', fontsize=9, color='black')
-
+            if goal1_endtimes is not None:
+                plt.axvspan(
+                            start,
+                            start + goal1_endtimes[i],
+                            facecolor='lightblue',  # or 'lightblue'
+                            alpha=0.5,
+                            zorder = 0
+                        )
         # Optional: adjust y-limit if you want more headroom
         plt.ylim(ymin, ymax * 1.05)
         plt.xlim(0, np.max(trial_ends))
@@ -124,8 +131,10 @@ def plot_spikecount_over_trials(derivatives_base, unit_type: Literal['pyramidal'
         plt.ylabel("Number of spikes per minute")
         plt.title(f"Unit {unit_id}: Spike count across trials")
         plt.tight_layout()
-        plt.savefig(output_path)
-        plt.close()
+        #plt.savefig(output_path)
+        #plt.close()
+        plt.show()
+        breakpoint()
         
     print(f"Plots saved in {output_folder}")
 
