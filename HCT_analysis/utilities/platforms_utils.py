@@ -64,7 +64,6 @@ def get_goals_coords(goals):
     return [get_platform_center(goals[0]), get_platform_center(goals[1])]
 
 def calculate_occupancy_plats(pos_data):
-    
     platforms_occupancy = []
     for i in range(61):
         platforms_i = pos_data[pos_data['platform'] == i + 1]
@@ -76,7 +75,6 @@ def get_firing_rate_platforms(spike_train, pos_data, platform_occupancy):
     platforms = pos_data['platform']
     platforms_spk = platforms[spike_train]
     firing_rate = []
-
     for p in np.arange(1,62):
         # Filter platforms_spk for platform = p
         platform_p = platforms_spk[platforms_spk == p]

@@ -20,6 +20,7 @@ def find_paths(base_path, subject_number, session_number, trial_session_name):
         rawsubject_folder: path to the raw subject folder
         session_name: name of the session
     """
+    
     pattern = os.path.join(base_path, rf"rawdata\sub-{subject_number}*")
     matching_folders = glob.glob(pattern)
     if matching_folders:

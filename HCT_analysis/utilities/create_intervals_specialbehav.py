@@ -15,6 +15,7 @@ def create_intervals_specialbehav(rawsession_folder):
     Exports:
         Interval times for goal into rawsession_folder/task_metadata/goal_{1,2}_intervals.csv
     """
+    print("Creating fdx")
     # Add trial length to df
     path = os.path.join(rawsession_folder, "task_metadata", "trials_length.csv")
 
@@ -22,9 +23,13 @@ def create_intervals_specialbehav(rawsession_folder):
     lengths = df_length['trial length (s)'].to_numpy()
 
     # Df with restrictions
-    path = os.path.join(rawsession_folder, "task_metadata", "restricted_df.xlsx")
-    df_restricted = pd.read_excel(path)
-
+    try: 
+        path = os.path.join(rawsession_folder, "task_metadata", "restricted_df.xlsx")
+        df_restricted = pd.read_excel(path)
+    except:
+        path = os.path.join(rawsession_folder, "task_metadata", "restricted_df.csv")
+        df_restricted = pd.read_csv(path)
+        
 
     # Getting the cumulative length
     cumul_length = [0]

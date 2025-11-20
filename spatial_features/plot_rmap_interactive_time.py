@@ -198,7 +198,7 @@ def plot_rmap_interactive(derivatives_base, unit_id, task, frame_rate = 25, samp
         ax2.set_aspect('equal')
         if outline_x is not None and outline_y is not None:
                 ax2.plot(outline_x, outline_y, 'r-', lw=2, label='Maze outline')
-        
+        ax2.set_title('Blue: within interval. Red: outside interval')
         # Plot HD
         # Getting the spike times and making a histogram of them
          
@@ -321,7 +321,7 @@ def plot_rmap_interactive(derivatives_base, unit_id, task, frame_rate = 25, samp
         y_restrict = y[mask_time]
         hd_restrict = hd[mask_time]
         
-        plt.show(block=False)
+        plt.show(block=True)
         plt.pause(0.1)
         plt.close(fig)
 
@@ -427,8 +427,8 @@ def _complex_mean(alpha, w=None, axis=None, axial_correction=1):
 
 
 if __name__ == "__main__":
-    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
-    unit_id = 59
+    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-02_date-11092025\all_trials"
+    unit_id = 61
     plot_rmap_interactive(derivatives_base, unit_id, task = 'hct')
 
 

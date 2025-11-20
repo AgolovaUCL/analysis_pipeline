@@ -4,20 +4,10 @@ import glob
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+from spatial_features.utils.spatial_features_plots import plot_roseplots, add_arm_overlay_roseplot
 
-def make_roseplots(derivatives_base, rawsession_folder, trials_to_include, deg: int, path_to_df = None):
-    """
-    This code creates the roseplots as visualized for the spatiotemporal analysis. 
-    For the location of the arms (N, NE, etc.) is assumes we're using the new camera (the one with 25 frame rate and north on top)
-
-    Input: 
-    derivatives_base; path to derivatives folder
-    rawsession_folder: path to rawdata folder
-    trials_to_include: trials to include in the analysis
-    deg: degree that the data was binned into
-    path_to_df: path to df containing MRl data (optional)
-    """
-
+def get_MRL_data(derivatives_base, path_to_df = None):
+    """ Gets the path for the MRL data used, either the path is provided or user provides it"""
     # df path
     if path_to_df is not None:
         df_path = pd.read_csv(path_to_df)
@@ -33,10 +23,14 @@ def make_roseplots(derivatives_base, rawsession_folder, trials_to_include, deg: 
             user_input = np.int32(user_input)
             df_path = df_options[user_input - 1]
             print(f"Making roseplot from data from {os.path.basename(df_options[user_input - 1])}")
-
+            
     df_all = pd.read_csv(df_path)
-    df = df_all[df_all['significant'] == 'sig']
+    return df_all
 
+def get_directories(derivatives_base, deg):
+    """ Returns directories"""
+    rawsession_folder = derivatives_base.replace(r"\derivatives", r"\rawdata")
+    rawsession_folder = os.path.dirname(rawsession_folder)
     # Dataframe with raised arms
     csv_path = glob.glob(os.path.join(rawsession_folder, 'task_metadata', 'behaviour*.csv'))
 
@@ -48,16 +42,50 @@ def make_roseplots(derivatives_base, rawsession_folder, trials_to_include, deg: 
             behaviour_df = pd.read_excel(excel_path[0], header=None)
         else:
             raise FileNotFoundError('No behaviour CSV or Excel file found in the specified folder.')
-        
-    # Direction of arms and their angles
-    arms_dir = ["N", "NW", "SW", "S", "SE", "NE"]
-    arms_angles_start = [30, 90, 150, 210, 270, 330]
-
+    
     # Output path: 
     output_folder_plot = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'spatial_features', 'spatial_plots', 'roseplots')
     if not os.path.exists(output_folder_plot):
         os.makedirs(output_folder_plot)
     output_path_plot = os.path.join(output_folder_plot, f'roseplot_{deg}_degrees.png')
+    return behaviour_df, output_path_plot
+
+def get_sum_bin(mean_dir_arr, num_spikes_arr, bin_edges):
+    """ Gets the number of spieks in each bin"""
+    sum_count_bin = []
+
+    bin_idx = np.digitize(mean_dir_arr, bin_edges) - 1 
+
+    # Count the number of spikes for each element in bin
+    for i in range(len(bin_edges)-1):
+        indices = np.where(bin_idx == i)
+        num_spikes_i = num_spikes_arr[indices]
+        sum_count_bin.append(np.sum(num_spikes_i))
+    return sum_count_bin
+                     
+def make_roseplots(derivatives_base, trials_to_include, deg: int, path_to_df = None):
+    """
+    This code creates the roseplots as visualized for the spatiotemporal analysis. 
+    For the location of the arms (N, NE, etc.) is assumes we're using the new camera (the one with 25 frame rate and north on top)
+
+    Input: 
+    derivatives_base; path to derivatives folder
+    rawsession_folder: path to rawdata folder
+    trials_to_include: trials to include in the analysis
+    deg: degree that the data was binned into
+    path_to_df: path to df containing MRl data (optional)
+    """
+    
+    # Getting df with MRL values for each unit and epoch
+    df_all = get_MRL_data(derivatives_base, path_to_df)
+    df = df_all[df_all['significant'] == 'sig']
+
+    # Dataframe with raised arms
+    behaviour_df, output_path_plot = get_directories(derivatives_base, deg)
+    
+    # Direction of arms and their angles
+    arms_dir = ["N", "NW", "SW", "S", "SE", "NE"]
+    arms_angles_start = [30, 90, 150, 210, 270, 330]
  
     # Plot: 3 columns for epochs, final column for correct/incorrect
     fig, axs = plt.subplots(len(trials_to_include), 4, figsize = [3*4, 4*len(trials_to_include)], subplot_kw = {'projection': 'polar'})
@@ -68,7 +96,7 @@ def make_roseplots(derivatives_base, rawsession_folder, trials_to_include, deg: 
         for e in np.arange(1,4):
             num_spikes_arr = []
             mean_dir_arr = []
-            sum_count_bin = []
+
 
             # filter for this trial and epoch
             filtered_df = df[(df['trial'] == tr) & (df['epoch'] == e)]
@@ -82,72 +110,14 @@ def make_roseplots(derivatives_base, rawsession_folder, trials_to_include, deg: 
                 counts, bin_edges = np.histogram(mean_dir_arr, bins = num_bins, range = (-180, 180))
 
                 # Finding the bin of each element in the mean dir arr
-                bin_idx = np.digitize(mean_dir_arr, bin_edges) - 1 
-
-                # Count the number of spikes for each element in bin
-                for i in range(len(bin_edges)-1):
-                    indices = np.where(bin_idx == i)
-                    num_spikes_i = num_spikes_arr[indices]
-                    sum_count_bin.append(np.sum(num_spikes_i))
-
-                # finding bin centers for plotting
-                bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-                bin_centers = np.deg2rad(bin_centers)
-                width = np.diff(bin_centers)[0]
-
-                # bar length = sum of number of spikes
-                axs[tr-1, e-1].bar(
-                    bin_centers,
-                    sum_count_bin,
-                    width=width,
-                    bottom=0.0,
-                    alpha=0.8,
-                    zorder = 2
-                )
-
-                axs[tr-1, e-1].text(
-                    np.pi/3,                # angle in radians
-                    1.25* np.nanmax(sum_count_bin),         # radius (just outside the bar)
-                    f"n = {len(filtered_df)}",   # label text
-                    ha='center',
-                    va='bottom',
-                    fontsize=8,
-                    rotation_mode='anchor',
-                    color = 'r',
-                )
-
-                # Overlay the arm choices
-                if e > 1:
-                    arm = behaviour_df.iloc[tr-1, 1]
-                    index = np.where(np.array(arms_dir) == arm)[0][0]
-                    angle_start = arms_angles_start[index]
-                    theta = np.linspace(np.deg2rad(angle_start), np.deg2rad(angle_start + 60), 100) 
-                    r = np.ones_like(theta) * np.nanmax(sum_count_bin)
-                    axs[tr-1, e-1].fill_between(theta, 0, r, color='lightgreen', alpha=0.5, zorder=0)
-
-                if e > 2:
-                    arm = behaviour_df.iloc[tr-1, 2]
-                    index = np.where(np.array(arms_dir) == arm)[0][0]
-                    angle_start = arms_angles_start[index]
-                    theta = np.linspace(np.deg2rad(angle_start), np.deg2rad(angle_start + 60), 100) 
-                    r = np.ones_like(theta) * np.nanmax(sum_count_bin)
-                    axs[tr-1, e-1].fill_between(theta, 0, r, color='pink', alpha=0.5, zorder=0)
+                sum_count_bin = get_sum_bin(mean_dir_arr, num_spikes_arr, bin_edges)
+                
+                plot_roseplots(filtered_df,behaviour_df, arms_dir, arms_angles_start, sum_count_bin, bin_edges,e,  tr, axs[tr-1, e-1])
 
             
             axs[tr-1, e-1].set_title(f" Tr {tr} epoch {e}")
 
-        if behaviour_df.iloc[tr-1, 3] == "Y":
-            text = "Correct"
-            c = 'g'
-        else:
-            text = "Incorrect"
-            c = 'r'
-
-        axs[tr-1, 3].remove() 
-        axs[tr-1, 3] = fig.add_subplot(len(trials_to_include), 5, (tr-1)*5 + 5) 
-        axs[tr-1, 3].axis('off') 
-        axs[tr-1, 3].text(0.0, 0.5, text, fontsize=11, va='center', ha='left', wrap=True, c= c)
-
+        add_arm_overlay_roseplot(behaviour_df, tr, trials_to_include,  axs[tr-1, 3], fig)
 
     plt.tight_layout()
     plt.savefig(output_path_plot)

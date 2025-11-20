@@ -4,7 +4,9 @@ import json
 import os
 import glob
 
+""" OLD METHOD WE DO NOT USE THIS ANYMORE"""
 def create_intervals_df(rawsession_folder):
+    
     """
     Finds the start and stop time for each trial, so that we can restrict spike times to for each goal
     NOTE Is based on the labview data

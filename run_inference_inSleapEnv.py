@@ -38,14 +38,20 @@ then just open a command line terminal activate the environment and type: python
 """
 
 def call_inference_on_all(derivatives_base, centroid_model_folder, centered_model_folder,  all_trials = True, ext=".avi"):
+    """
+    Runs centroid model and centered model on the videos found in the rawdata/tracking folder
+    Saves inference results in derivatives_base\analysis\spatial_behav_data\inference_results
+    """
+    # Loading folders
     rawsession_folder = derivatives_base.replace("derivatives", "rawdata")
     rawsession_folder = os.path.dirname(rawsession_folder)
-
     video_folder = os.path.join(rawsession_folder, 'tracking')
     dest_folder = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'inference_results')
     if not os.path.exists(dest_folder):
         os.makedirs(dest_folder)
     source_folder = pathlib.Path(video_folder)
+    
+    # Loading videopaths
     fpaths = list(source_folder.rglob(f"*{ext}"))
     counter = 0
     for fpath in fpaths:
@@ -63,10 +69,12 @@ def call_inference(fpath, dest_folder, centered_model_folder, centroid_model_fol
     dest_path = dest_folder / f"{fpath.stem}_inference.slp"
 
     if dest_path.exists():
+        # Skips video if inference file already exists
         print(f"Skipping {fpath} as {dest_path} already exists.\n")
         return
 
     if fpath.exists():
+        # Runs preprocessing
         print(f"processing: {fpath}\n")
         command_inf = f"sleap-track -m {centered_model_folder} -m {centroid_model_folder} -o {dest_path}  --tracking.tracker none {fpath}  "
         print(f"running inference: {command_inf}\n")

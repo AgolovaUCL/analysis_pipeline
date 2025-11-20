@@ -4,7 +4,8 @@ import pandas as pd
 
 
 def calculate_relDirDist(pos_data, sink_bins, direction_bins):
-
+    """ For each platform, has the relative directional distribution to each sink
+    Saved in a 4D array (platform, sink x, sink y, direction bins)"""
     xAxis = sink_bins["x"]
     yAxis = sink_bins["y"]
 
@@ -61,7 +62,7 @@ def getRelDirDist(pos, hd, xAxis, yAxis, angleEdges, normalize = True):
         for j, y_bin in enumerate(yAxis):
 
             xDistance = x_bin - x
-            yDistance = y_bin - y
+            yDistance = y - y_bin
 
             dir2bin = np.atan2(xDistance, yDistance)
             

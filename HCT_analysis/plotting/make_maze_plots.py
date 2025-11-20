@@ -72,7 +72,7 @@ def plot_occupancy(derivatives_base, rawsession_folder, goal_platforms):
     Exports:
         occupancy.png into {derivatives_base}/analysis/maze_behaviour
     """
-    
+    # Input path
     path = os.path.join(rawsession_folder, "behaviour", "concatenated_trials.csv")
     df = pd.read_csv(path)
 
@@ -82,7 +82,7 @@ def plot_occupancy(derivatives_base, rawsession_folder, goal_platforms):
     fig.suptitle("Frequency of visit per platform")
     hcoord, vcoord, hcoord_rotated, vcoord_rotated = get_coords()
 
-    #cmap = matplotlib.colormaps['RdYlGn']
+
     cmap = plt.cm.RdYlGn
     # Go through goals and all trials
     for g in [0,1,2]: # g = 0: goal 1, g = 1: goal 2, g = 2: all trials

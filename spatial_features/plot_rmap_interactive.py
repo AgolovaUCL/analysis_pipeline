@@ -12,6 +12,34 @@ import json
 import warnings
 from astropy.stats import circmean
 
+def mask_posdata(pos_data, mask):
+    """
+    Masks positional data
+
+    Args:
+        pos_data: array with x, y, hd, x_bin and y_bin
+        mask: 2D boolean
+    returns hd_masked
+    """
+    xsize, ysize = mask.shape
+
+    x_bin = pos_data["x_bin"].to_numpy()
+    y_bin = pos_data["y_bin"].to_numpy()
+    hd = pos_data["hd"].to_numpy()
+
+    valid = (
+        (x_bin >= 0) & (x_bin < xsize) &
+        (y_bin >= 0) & (y_bin < ysize)
+    )
+
+    valid_mask = np.zeros_like(valid, dtype=bool)
+    valid_indices = np.where(valid)
+    valid_mask[valid_indices] = mask[x_bin[valid], y_bin[valid]]
+
+    # Return masked hd values (ignore NaNs)
+    return hd[valid_mask & ~np.isnan(hd)]
+                    
+    
 def plot_rmap_interactive(derivatives_base, unit_id,  frame_rate = 25, sample_rate = 30000):
     """ 
     Makes a plot for each unit with its ratemap (left), occupancy (middle) and directional firing rate (right).
@@ -26,7 +54,6 @@ def plot_rmap_interactive(derivatives_base, unit_id,  frame_rate = 25, sample_ra
         folder_path = kilosort_output_path
     )
    
-    
     # Limits
     limits_path = os.path.join(derivatives_base, "analysis", "maze_overlay", "limits.json")
     with open(limits_path) as json_data:
@@ -96,31 +123,17 @@ def plot_rmap_interactive(derivatives_base, unit_id,  frame_rate = 25, sample_ra
      
     while input != 'q':
         # Make plot
-        fig, axs = plt.subplots(1, 3, figsize = [15, 5])
+        fig, axs = plt.subplots(1, 4, figsize = [20, 5])
         axs = axs.flatten()
         fig.suptitle(f"Unit {unit_id}", fontsize = 18)
 
         # ====== Plot ratemap ======
-
-        im = axs[0].imshow(rmap.T, 
-                cmap='viridis', 
-                interpolation = None,
-                origin='lower', 
-                aspect='auto', 
-                extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]])
-
-
-        axs[0].set_title(f"n = {len(spike_train)}")
-        axs[0].set_xlim(xmin, xmax)
-        axs[0].set_ylim(ymax, ymin)
-        axs[0].set_aspect('equal')
-        if outline_x is not None and outline_y is not None:
-                axs[0].plot(outline_x, outline_y, 'r-', lw=2, label='Maze outline')
-        #fig.colorbar(im, ax=axs[0], label='Firing rate')
-        fig.colorbar(im, ax=axs[0], label='Firing rate')
-
-        # 2. spikemap
         if mask is not None:
+            hd_masked = mask_posdata(pos_data, mask)
+
+            occupancy_counts_masked, _ = np.histogram(hd_masked, bins=num_bins, range = [-np.pi, np.pi])
+            occupancy_time_masked = occupancy_counts_masked / frame_rate 
+    
             xsize, ysize = mask.shape
             spike_train_filt = []
             for s in spike_train:
@@ -132,8 +145,25 @@ def plot_rmap_interactive(derivatives_base, unit_id,  frame_rate = 25, sample_ra
             spike_train_filt = spike_train
             
         is_filt = np.isin(spike_train, spike_train_filt)
+        
+        im = axs[0].imshow(rmap.T, 
+                cmap='viridis', 
+                interpolation = None,
+                origin='lower', 
+                aspect='auto', 
+                extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]])
 
 
+        axs[0].set_title(f"{len(spike_train_filt)}/{len(spike_train)}")
+        axs[0].set_xlim(xmin, xmax)
+        axs[0].set_ylim(ymax, ymin)
+        axs[0].set_aspect('equal')
+        if outline_x is not None and outline_y is not None:
+                axs[0].plot(outline_x, outline_y, 'r-', lw=2, label='Maze outline')
+        #fig.colorbar(im, ax=axs[0], label='Firing rate')
+        fig.colorbar(im, ax=axs[0], label='Firing rate')
+
+        # 2. spikemap
         x_spikes = x[spike_train]
         y_spikes = y[spike_train]
         hd_spikes = hd[spike_train]
@@ -158,11 +188,10 @@ def plot_rmap_interactive(derivatives_base, unit_id,  frame_rate = 25, sample_ra
         axs[1].set_aspect('equal')
         if outline_x is not None and outline_y is not None:
                 axs[1].plot(outline_x, outline_y, 'r-', lw=2, label='Maze outline')
+        axs[1].set_title('Blue: within interval. Red: outside interval')
         
         # Plot HD
         # Getting the spike times and making a histogram of them
-        
-
         
         spikes_hd = hd[spike_train_filt]
         spikes_hd = spikes_hd[~np.isnan(spikes_hd)]
@@ -172,8 +201,12 @@ def plot_rmap_interactive(derivatives_base, unit_id,  frame_rate = 25, sample_ra
         
         # Calculating directional firing rate
         direction_firing_rate = np.divide(counts, occupancy_time, out=np.full_like(counts, 0, dtype=float), where=occupancy_time!=0)
+        if mask is not None:
+            direction_firing_rate_masked = np.divide(counts, occupancy_time_masked,out=np.full_like(counts, 0, dtype=float), where=occupancy_time!=0 )
+        else:
+            direction_firing_rate_masked = direction_firing_rate
         fig.delaxes(axs[2])
-        axs[2] = fig.add_subplot(1,3,3, polar=True)
+        axs[2] = fig.add_subplot(1,4,3, polar=True)
 
         # MRL adn significance
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
@@ -213,7 +246,17 @@ def plot_rmap_interactive(derivatives_base, unit_id,  frame_rate = 25, sample_ra
             axs[2].text(0.05, 1.05, text, transform=axs[2].transAxes)
             axs[2].legend(loc='upper right', bbox_to_anchor=(1.2, 1.1))
 
-        axs[2].set_title(f'n (in region): {len(spike_train_filt)}')
+        # Plotting
+        fig.delaxes(axs[3])
+        axs[3] = fig.add_subplot(1,4,4, polar=True)
+        width = np.diff(bin_centers)[0]
+        axs[3].bar(
+            bin_centers,
+            direction_firing_rate_masked,
+            width=width,
+            bottom=0.0,
+            alpha=0.8
+        )
         
         plt.tight_layout()
         plt.show(block=False)   # show figure but don’t block execution yet
@@ -325,8 +368,8 @@ def _complex_mean(alpha, w=None, axis=None, axial_correction=1):
 
 
 if __name__ == "__main__":
-    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
-    unit_id = 23
+    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-02_date-11092025\all_trials"
+    unit_id = 61
     plot_rmap_interactive(derivatives_base, unit_id)
 
 

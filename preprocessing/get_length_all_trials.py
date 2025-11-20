@@ -10,8 +10,13 @@ import shutil
 def get_length_all_trials(rawsession_folder, trials_to_include):
     """
     Creates a file with the trial length for all the trials
-    Saves it to rawsession_folder/task_metadata/trails_length.csv
+    Saves it to rawsession_folder/task_metadata/trials_length.csv
+    
+    Inputs:
+        rawsession_folder: path to rawsession folder
+        trials_to_include: trial numbers
     """
+    # Loading data paths
     ephys_path = os.path.join(rawsession_folder, 'ephys')
     output_folder = os.path.join(rawsession_folder, "task_metadata")
     if not os.path.exists(output_folder):
@@ -19,17 +24,18 @@ def get_length_all_trials(rawsession_folder, trials_to_include):
     output_path = os.path.join(output_folder, "trials_length.csv")
 
 
-    # Step 1: Find all run folders (e.g., ses-01_g0, ses-01_g1, etc.)
+    # Step 1: First we find all run folders (e.g., ses-01_g0, ses-01_g1, etc.)
     pattern = os.path.join(ephys_path, "ses*")
     run_folders = [folder for folder in glob.glob(pattern) if os.path.isdir(folder)]
 
     print(f"Found {len(run_folders)} run folder(s) in {ephys_path}:\n")
 
+    # going over all the folders
     for folder in run_folders:
         base = os.path.basename(folder)
         dir_parent = os.path.dirname(folder)
 
-        match = re.search(r'(ses[-_]\d+_g)(\d+)$', base)
+        match = re.search(r'(ses[-_]\d+_g)(\d+)$', base) #Name must be of the form ses- or ses_
         if match:
             prefix, num = match.groups()
             new_name = f"{prefix}{int(num):02d}"  # pad to 2 digits (e.g. g00, g01, g10)
@@ -40,13 +46,14 @@ def get_length_all_trials(rawsession_folder, trials_to_include):
                 os.rename(folder, new_path)
         else:
             print(f"Skipping {base}: no match for 'g' number pattern.")
-        # -------------------------------------
 
-    # After renaming, update list of run_folders
+
+    # Assinging new folders
     run_folders = [folder for folder in glob.glob(pattern) if os.path.isdir(folder)]
 
     g_numbers = []
     trials_length = []
+    
     # Step 2: Process each run folder
     for run_folder in run_folders:
 

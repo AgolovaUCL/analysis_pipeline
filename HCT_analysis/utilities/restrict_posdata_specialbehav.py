@@ -4,8 +4,9 @@ import pandas as pd
 from matplotlib.path import Path
 import matplotlib.pyplot as plt
 import json
-from add_platforms_any_df import add_platforms_to_csv
-def restrict_posdata_specialbehav(pos_data, derivatives_base, rawsession_folder,  frame_rate = 25):
+from utilities.add_platforms_any_df import add_platforms_to_csv
+
+def restrict_posdata_specialbehav(derivatives_base, rawsession_folder,  frame_rate = 25):
     """
     Restricts the pos_data to the intervals of the goal.
     
@@ -17,17 +18,19 @@ def restrict_posdata_specialbehav(pos_data, derivatives_base, rawsession_folder,
     Returns:
         DataFrame: restricted position data
     """
-
+    pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'XY_HD_w_platforms.csv')
+    pos_data = pd.read_csv(pos_data_path)
+    
     # Limits
     limits_path = os.path.join(derivatives_base, "analysis", "maze_overlay", "limits.json")
     with open(limits_path) as json_data:
         limits = json.load(json_data)
         json_data.close()
     
-    xmin = limits['xmin']
-    xmax = limits['xmax']
-    ymin = limits['ymin']
-    ymax = limits['ymax']
+    xmin = limits['x_min']
+    xmax = limits['x_max']
+    ymin = limits['y_min']
+    ymax = limits['y_max']
     
     # ---- Load maze outline coordinates ----
     outline_path = os.path.join(derivatives_base, "analysis", "maze_overlay", "maze_outline_coords.json")
@@ -64,13 +67,12 @@ def restrict_posdata_specialbehav(pos_data, derivatives_base, rawsession_folder,
         pos_data_org['frame'] = np.arange(1,len(pos_data_org) + 1)
         mask = np.zeros(len(pos_data), dtype=bool)
         for start, end in intervals:
-            mask |= (pos_data_org['frame'] >= start) & (pos_data_org['frame'] <= end)
+            mask |= (pos_data_org['frame'] >start) & (pos_data_org['frame'] < end)
         pos_data_org = pos_data_org[mask]
         
         print(f"Len dataframe for goal {goal}: {len(pos_data_org)}")
         output_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', f'XY_HD_goal{goal}_trials.csv')
         pos_data_org.to_csv(output_path, index=False)
-        print(len(pos_data_org))
         print(f"Saved restricted position data for goal {goal} to {output_path}")
 
     # Saving all into one df
@@ -106,8 +108,10 @@ def restrict_posdata_specialbehav(pos_data, derivatives_base, rawsession_folder,
         else:
             goal_df = df_restricted_all
             title = 'All trials, only during intervals'
-            
+        
         x = goal_df['x'].values
+        if not x.size: # empty array
+            continue
         x = x[~np.isnan(x)]
         y = goal_df['y'].values
         y = y[~np.isnan(y)]

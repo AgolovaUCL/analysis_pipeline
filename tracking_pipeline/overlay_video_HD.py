@@ -6,19 +6,11 @@ from tqdm import tqdm
 import os
 import glob
 
-def overlay_video_HD(derivatives_base, rawsession_folder, trials_to_include):
-    """
-    Overlays videos with the position of the animal and the head direction
-
-    Inputs:
-    derivatives_base: path to derivatives folder
-    rawsession_folder: path to raw session folder
-    trials_to_include: trials to include in this analysis
+def get_dirs(derivatives_base):
+    """ Getting all the directories needed for funcition"""
+    rawsession_folder = derivatives_base.replace(r"\derivatives", r"\rawdata")
+    rawsession_folder = os.path.dirname(rawsession_folder)
     
-    Notes:
-    Videos must have the format T{trial number}_*.avi (where * denotes that anything can be there)
-    HD is assumed to be in degrees in the dataframes
-    """
     # Getting data paths
     pos_data_dir = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD')
     if not os.path.exists(pos_data_dir):
@@ -30,16 +22,40 @@ def overlay_video_HD(derivatives_base, rawsession_folder, trials_to_include):
     
     output_dir = os.path.join(derivatives_base, "analysis", "processed_video")
     os.makedirs(output_dir, exist_ok=True)
+    
+    return output_dir, video_data_dir, pos_data_dir
 
+def overlay_video_HD(derivatives_base, trials_to_include):
+    """
+    Overlays videos with the position of the animal and the head direction
+
+    Inputs:
+    derivatives_base: path to derivatives folder
+    trials_to_include: trials to include in this analysis
+    
+    Outputs:
+    derivatives_base\analysis\processed_video\T{tr}_with_HD.avi: video file with overlayed position and HD
+    
+    Notes:
+    Videos must have the format T{trial number}_*.avi (where * denotes that anything can be there)
+    HD is assumed to be in radians in the dataframes
+    
+    """
+    # Getting idrectories
+    output_dir, video_data_dir, pos_data_dir = get_dirs(derivatives_base)
+   
     # Go over all trials
     for tr in trials_to_include:
+        # Path for trial csv posdata 
         trial_csv_name = f'XY_HD_t{tr}.csv'
         trial_csv_path = os.path.join(pos_data_dir, trial_csv_name)
         df = pd.read_csv(trial_csv_path)
-
+        
+        # Path for output
         output_path = os.path.join(output_dir, f"t{tr}_with_HD.avi")
         print(f"Output path for video overlay: {output_path}")
 
+        # Finding video path
         pattern = f"T{tr}_*.avi"
         files = glob.glob(os.path.join(video_data_dir, pattern))
 
@@ -57,11 +73,16 @@ def do_overlay(video_path, df, output_path):
     output_path: path where video is saved
 
     Note:
-    Its assumed that df has hd in degrees
+    Its assumed that df has hd in radians
     """
+    # Positional data
     head_pos_x_col = df.iloc[:, 0].to_numpy()
     head_pos_y_col = df.iloc[:, 1].to_numpy()
     hd_col = df.iloc[:, 2].to_numpy()
+    
+    if np.nanmax(hd_col) > 2*np.pi:
+        raise ValueError("hd is in degrees. Rerun movement to get data in radians")
+    
     # Open the video file
     cap = cv2.VideoCapture(video_path)
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -88,8 +109,8 @@ def do_overlay(video_path, df, output_path):
 
             # Calculate the end point of the arrow
             length = 30  # Length of the arrow
-            end_x = int(x + length * np.cos(np.radians(hd)))
-            end_y = int(y - length * np.sin(np.radians(hd)))
+            end_x = int(x + length * np.cos(hd))
+            end_y = int(y - length * np.sin(hd))
 
             # Draw the arrow
             cv2.arrowedLine(frame, (x, y), (end_x, end_y), (0, 255, 0), 2)

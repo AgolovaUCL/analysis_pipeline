@@ -54,7 +54,6 @@ trial_numbers = [1,2]
 
 # === Finding the subject folder and session name ===
 derivatives_base, rawsession_folder, rawsubject_folder, session_name = find_paths(base_path, subject_number, session_number, trial_session_name)
-breakpoint()
 
 # === Adding data to config file ===
 config_data = {
@@ -73,16 +72,14 @@ config_data = {
 # === Adding data to config file ===
 append_config(derivatives_base, config_data)
 
-breakpoint()
 # === Zero padding trials ===
-#zero_pad_trials(rawsession_folder)
-
+zero_pad_trials(rawsession_folder)
 
 # === Running Spikewrap preprocessing ===
-run_spikewrap(derivatives_base, rawsubject_folder, session_name) ## CHANGE TO PASS OUTPUT TO THIS
+run_spikewrap(derivatives_base, rawsubject_folder, session_name)
 
 # === Post processing ===
-trial_length = run_spikeinterface(derivatives_base)
+run_spikeinterface(derivatives_base)
 
 # == Obtain length for all of the trials, making a csv out of its === 
 get_length_all_trials(rawsession_folder, trial_numbers)

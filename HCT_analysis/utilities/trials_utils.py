@@ -13,8 +13,11 @@ def append_alltrials(rawsession_folder):
         rawsession_folder (str): path to the rawdata folder
     
     Exports:
-        alltrials_trialday.csv into rawsession/behaviour
+       rawsession/behaviour/alltrials_trialday.csvL alltrials filtered for only this day
+       
+    NOTE: this will most likely still include trials that are not the trials we will use. These have to be removed later. 
     """
+    
     folder = os.path.basename(rawsession_folder)        # Obtains session name, example: "ses-02_date-05092025"
     date = folder.split("date-")[-1]  # Obtains number after 'date', for example "05092025"
     
@@ -23,7 +26,7 @@ def append_alltrials(rawsession_folder):
     
     df = pd.read_csv(alltrials_path)
     
-    # If date starts with 0, remove it
+    # If date starts with 0, remove it (its saved without 0 in the trial_csv)
     if date.startswith("0"):
         date = date[1:]
 
@@ -79,6 +82,8 @@ def get_coords(derivatives_base):
     hcoord_tr = params["hcoord_tr"]
     vcoord_tr= params["vcoord_tr"]
     return hcoord_tr, vcoord_tr
+
+
 def get_goal_coordinates(derivatives_base, rawsession_folder):
     """
     Returns:
@@ -101,7 +106,7 @@ def get_limits_from_json(derivatives_base):
     with open(limits_path) as json_data:
         limits = json.load(json_data)
         json_data.close()
-    return limits["xmin"], limits["xmax"], limits["ymin"], limits["ymax"]
+    return limits["x_min"], limits["x_max"], limits["y_min"], limits["y_max"]
 
 if __name__ == "__main__":
     rawsession_folder = r"D:\Spatiotemporal_task\rawdata\sub-003_id_2V\ses-02_date-05092025"

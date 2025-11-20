@@ -13,18 +13,24 @@ def run_spikewrap(derivatives_base, subject_path, session_name):
     """
     Function runs spikewrap
     Input:
-    derivatives_base: path to derivatives folder
-    subject_path: path with ephys data
-    session_name: name of this session
+        derivatives_base: path to derivatives folder
+        subject_path: path with ephys data
+        session_name: name of this session
 
     Creates:
-    Binned data (as a raw file)
-    Kilosort4 output
+        Binned data (as a raw file)
+        Kilosort4 output
 
-    Currently runs kilosort4
-    Settings are set so that kilosort4 does not do drift correction
-    and does not do CAR (common average reference) on the data.
+    Currently runs the following:
+    Preprocessing:
+        Global CAR
+        Bandpass filter 300-6000 Hz
+    Kilosort4:
+        No drift correction (nblocks = 0)
+        No CAR
+        Highpass cutoff 100 Hz (probably redundant given preprocessing)
     """
+    
     session = sw.Session(
         subject_path=subject_path, # path to rawdata/sub-001_id-XX
         session_name=session_name, # For example, ses-01
@@ -42,7 +48,6 @@ def run_spikewrap(derivatives_base, subject_path, session_name):
 
     #plots = session.plot_preprocessed(time_range=(0, 0.1), show=True)
 
-    # you could not save here
     session.save_preprocessed(
         overwrite=True,
         n_jobs=1,

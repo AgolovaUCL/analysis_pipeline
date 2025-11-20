@@ -223,7 +223,7 @@ def get_relative_direction_occupancy_by_position(pos_data, limits, n_dir_bins = 
     '''
         
     # get spatial bins
-    x_bins, y_bins = get_xy_bins(limits, n_bins=100)
+    x_bins, y_bins = get_xy_bins(limits, n_bins=120)
 
     # candidate consink positions will be at bin centres
     # get_og_bins just adjusts the last bin a bit, doesn't really do anything for us

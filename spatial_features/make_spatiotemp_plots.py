@@ -5,161 +5,19 @@ import pandas as pd
 import spikeinterface.extractors as se
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from scipy.ndimage import gaussian_filter
 import warnings
 from astropy.stats import circmean
-from astropy.convolution import convolve, convolve_fft
 import astropy.convolution as cnv
-from skimage.morphology import disk
-import random
-from spatial_features.get_sig_cells import get_sig_cells # CHECK IF WORKS
+
+from spatial_features.get_sig_cells import get_sig_cells, resultant_vector_length # CHECK IF WORKS
+from spatial_features.utils.spatial_features_utils import load_unit_ids, get_spikes_epoch, get_spikes_tr, get_trial_length_info, get_unit_info, get_posdata, get_occupancy_time, get_ratemaps, get_spike_train_frames, get_directional_firingrate
+from spatial_features.utils.spatial_features_plots import plot_rmap, plot_occupancy, plot_directional_firingrate, plot_spikes_spatiotemp
 
 
-def resultant_vector_length(alpha, w=None, d=None, axis=None,
-                            axial_correction=1, ci=None, bootstrap_iter=None):
-    """
-    Copied from Pycircstat documentation
-    Computes mean resultant vector length for circular data.
-
-    This statistic is sometimes also called vector strength.
-
-    :param alpha: sample of angles in radians
-    :param w: number of incidences in case of binned angle data
-    :param ci: ci-confidence limits are computed via bootstrapping,
-               default None.
-    :param d: spacing of bin centers for binned data, if supplied
-              correction factor is used to correct for bias in
-              estimation of r, in radians (!)
-    :param axis: compute along this dimension, default is None
-                 (across all dimensions)
-    :param axial_correction: axial correction (2,3,4,...), default is 1
-    :param bootstrap_iter: number of bootstrap iterations
-                          (number of samples if None)
-    :return: mean resultant length
-
-    References: [Fisher1995]_, [Jammalamadaka2001]_, [Zar2009]_
-    """
-    if axis is None:
-        axis = 0
-        alpha = alpha.ravel()
-        if w is not None:
-            w = w.ravel()
-
-    cmean = _complex_mean(alpha, w=w, axis=axis,
-                          axial_correction=axial_correction)
-
-    # obtain length
-    r = np.abs(cmean)
-
-    # for data with known spacing, apply correction factor to correct for bias
-    # in the estimation of r (see Zar, p. 601, equ. 26.16)
-    if d is not None:
-        if axial_correction > 1:
-            warnings.warn("Axial correction ignored for bias correction.")
-        r *= d / 2 / np.sin(d / 2)
-    return r
-
-
-def _complex_mean(alpha, w=None, axis=None, axial_correction=1):
-    # Copied from picircstat documentation
-    if w is None:
-        w = np.ones_like(alpha)
-    alpha = np.asarray(alpha)
-
-    assert w.shape == alpha.shape, "Dimensions of data " + str(alpha.shape) \
-                                   + " and w " + \
-        str(w.shape) + " do not match!"
-
-    return ((w * np.exp(1j * alpha * axial_correction)).sum(axis=axis) /
-            np.sum(w, axis=axis))
-
-
-
-def get_ratemaps(spikes, x, y, n: int, binsize = 15, stddev = 5):
-    """
-    Calculate the rate map for given spikes and positions.
-
-    Args:
-        spikes (array): spike train for unit
-        x (array): x positions of animal
-        y (array): y positions of animal
-        n (int): kernel size for convolution
-        binsize (int, optional): binning size of x and y data. Defaults to 15.
-        stddev (int, optional): gaussian standard deviation. Defaults to 5.
-
-    Returns:
-        rmap: 2D array of rate map
-        x_edges: edges of x bins
-        y_edges: edges of y bins
-    """
-    x_bins = np.arange(np.nanmin(x), np.nanmax(x) + binsize, binsize)
-    y_bins = np.arange(np.nanmin(y), np.nanmax(y)+ binsize, binsize)
-
-    pos_binned, x_edges, y_edges = np.histogram2d(x, y, bins=[x_bins, y_bins])
-    
-    spikes = [np.int32(el) for el in spikes]
-    
-    spikes_x = x[spikes]
-    spikes_y = y[spikes]
-    spikes_binned, _, _ = np.histogram2d(spikes_x, spikes_y, bins=[x_bins, y_bins])
-    
-    g = cnv.Box2DKernel(n)
-    g = cnv.Gaussian2DKernel(stddev, x_size=n, y_size=n)
-    g = np.array(g)
-    smoothed_spikes =cnv.convolve(spikes_binned, g)
-    smoothed_pos = cnv.convolve(pos_binned, g)
-
-    rmap = np.divide(
-        smoothed_spikes,
-        smoothed_pos,
-        out=np.full_like(smoothed_spikes, np.nan),  
-        where=smoothed_pos != 0              
-    )
-    
-    return rmap, x_edges, y_edges
-
-
-def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include, frame_rate = 25, sample_rate = 30000, num_bins = 24):
-    """
-    Makes the plots for the spatiotemporal experiments. Saves figures into analysis/cell_characteristics/spatial_features/spatial_plots/...
-    with the following layout:
-    One row for each trial
-    Left column: Ratemap for trial
-    Then for each epoch: left column - spike map, right column - head direction plot, with MRl denoted
-
-    Inputs:
-    derivatives_base: path to derivatives folder
-    rawsession_folder: path to rawsession folder
-    trials_to_include: trials for this recording day
-    frame_rate: frame_rate of camera (default = 25)
-    sample_rate: sample rate of recording device (default = 30000)
-    num_bins: number of bins used to bin the spatial data (default = 24, giving 15 degree bins)
-    
-    Returns:
-    Path to df with MRL data for all units (which can be used in roseplot)
-    """
-    # For plotting
-    n_epochs = 3
-    n_rows = len(trials_to_include)
-    n_cols = n_epochs * 2 + 1
-    
-    # In this df the directional data of all units will be saved
-    directional_data_all_units = pd.DataFrame(
-        columns=[
-            'cell', 'trial', 'epoch', 'MRL', 'mean_direction',
-            'percentiles95', 'percentiles99', 'significant', 'num_spikes'
-        ]
-    )
-
-    # Load data files
-    kilosort_output_path = os.path.join(derivatives_base,  "concat_run","sorting", "sorter_output" )
-    sorting = se.read_kilosort(
-        folder_path = kilosort_output_path
-    )
-    unit_ids = sorting.unit_ids
-    labels = sorting.get_property('KSLabel')
-    good_units_ids = [el for el in unit_ids if labels[el] == 'good']
-
+def load_directories(derivatives_base):
+    """ Loads df directories"""
+    rawsession_folder = derivatives_base.replace('derivatives', 'rawdata')
+    rawsession_folder = os.path.dirname(rawsession_folder)
     # Get directory for the positional data
     pos_data_dir = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD')
     if not os.path.exists(pos_data_dir):
@@ -167,12 +25,10 @@ def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include
     
     csv_path = os.path.join(rawsession_folder, 'task_metadata', 'epoch_times.csv')
     epoch_times = pd.read_csv(csv_path)
-   
 
     # loading dataframe with unit information
     path_to_df = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features", "all_units_overview","unit_metrics.csv")
     df_unit_metrics = pd.read_csv(path_to_df) 
-
 
 
     trials_length_path = os.path.join(rawsession_folder, 'task_metadata', 'trials_length.csv')
@@ -187,20 +43,95 @@ def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include
         
     if not os.path.exists(output_folder_data):
         os.makedirs(output_folder_data)
+    return pos_data_dir, output_folder_data, output_folder_plot, epoch_times, df_unit_metrics, trials_length
+
+
+def get_xy_pos(pos_data_dir, tr):
+    """ Gets xy pos of the animal for this trial"""
+    trial_csv_name = f'XY_HD_t{tr}.csv'
+    trial_csv_path = os.path.join(pos_data_dir, trial_csv_name)
+    xy_hd_trial = pd.read_csv(trial_csv_path)            
+    x = xy_hd_trial.iloc[:, 0].to_numpy()
+    y = xy_hd_trial.iloc[:, 1].to_numpy()
+    hd = xy_hd_trial.iloc[:, 2].to_numpy()
+    if np.nanmax(hd) > 2*np.pi + 0.1:
+        hd_rad = np.deg2rad(hd)
+    else:
+        hd_rad = hd
+    return x, y, hd_rad
+
+def make_new_element(unit_id, tr, e, MRL, mu, percentiles_95_value, percentiles_99_value, spike_train_this_epoch):
+    """ Makes new element for df"""
+    new_element = {
+        'cell': unit_id,
+        'trial': tr,
+        'epoch': e,
+        'MRL': MRL,
+        'mean_direction': np.rad2deg(mu),
+        'mean_direction_rad':mu,
+        'percentiles95': percentiles_95_value,
+        'percentiles99': percentiles_99_value,
+        'significant': 'ns', 
+        'num_spikes': len(spike_train_this_epoch)
+    } 
+    if MRL > percentiles_95_value:
+        new_element['significant'] = 'sig'   
+    return new_element
+
+def make_spatiotemp_plots(derivatives_base, trials_to_include, unit_type = "all", frame_rate = 25, sample_rate = 30000, num_bins = 24):
+    """
+    Makes the plots for the spatiotemporal experiments. Saves figures into analysis/cell_characteristics/spatial_features/spatial_plots/...
+    with the following layout:
+    One row for each trial
+    Left column: Ratemap for trial
+    Then for each epoch: left column - spike map, right column - head direction plot, with MRl denoted
+
+    Inputs:
+    derivatives_base: path to derivatives folder
+    trials_to_include: trials for this recording day
+    unit_type: unit types to make plots for (pyramidal, good, or all)
+    frame_rate: frame_rate of camera (default = 25)
+    sample_rate: sample rate of recording device (default = 30000)
+    num_bins: number of bins used to bin the spatial data (default = 24, giving 15 degree bins)
+    
+    Returns:
+    Path to df with MRL data for all units (which can be used in roseplot)
+    """
+    # Loading directories
+    pos_data_dir, output_folder_data, output_folder_plot, epoch_times, df_unit_metrics, trials_length = load_directories(derivatives_base)
+    
+    # Load kilosort files
+    kilosort_output_path = os.path.join(derivatives_base,  "concat_run","sorting", "sorter_output" )
+    sorting = se.read_kilosort(
+        folder_path = kilosort_output_path
+    )
+    unit_ids = sorting.unit_ids
+    unit_ids = load_unit_ids(derivatives_base, unit_type, unit_ids)
+    
+    
+    # For plotting
+    n_epochs = 3
+    n_rows = len(trials_to_include)
+    n_cols = n_epochs * 2 + 1
+    xmin, xmax, ymin, ymax = 500, 2000, 250, 1750
+    # In this df the directional data of all units will be saved
+    directional_data_all_units = pd.DataFrame(
+        columns=[
+            'cell', 'trial', 'epoch', 'MRL', 'mean_direction', 'mean_direction_rad',
+            'percentiles95', 'percentiles99', 'significant', 'num_spikes'
+        ]
+    )
     
 
     # Looping over all units
     for unit_id in tqdm(unit_ids):
 
         # Loading data
-        spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
-        spike_train = np.round(spike_train_unscaled*frame_rate/sample_rate) # trial data is now in frames in order to match it with xy data
+        x_pos, _, _, _ = get_posdata(derivatives_base)
+        spike_train = get_spike_train_frames(sorting, unit_id, x_pos, sample_rate, frame_rate)
 
         # Unit information
-        row = df_unit_metrics[df_unit_metrics['unit_ids'] == unit_id]
-        unit_firing_rate = row['firing_rate'].values[0]
-        unit_label = row['label'].values[0]
-
+        unit_firing_rate, unit_label = get_unit_info(df_unit_metrics, unit_id)
 
         # Creating figure
         fig, axs = plt.subplots(n_rows, n_cols, figsize = [3*n_cols, 3*n_rows])
@@ -213,46 +144,21 @@ def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include
 
         # Looping over trials
         for tr in trials_to_include:
-            spike_train_this_trial = np.copy(spike_train)
 
             # Trial times
-            trial_row = epoch_times[(epoch_times.trialnumber == tr)]
-            start_time = trial_row.iloc[0, 1]
-            trial_length_row = trials_length[(trials_length.trialnumber == tr)]
-            trial_length = trial_length_row.iloc[0, 2]
-
-
+            start_time, trial_length, trial_row = get_trial_length_info(epoch_times, trials_length,  tr)
+            
             # Positional data
-            trial_csv_name = f'XY_HD_t{tr}.csv'
-            trial_csv_path = os.path.join(pos_data_dir, trial_csv_name)
-            xy_hd_trial = pd.read_csv(trial_csv_path)            
-            x = xy_hd_trial.iloc[:, 0].to_numpy()
-            y = xy_hd_trial.iloc[:, 1].to_numpy()
-            hd = xy_hd_trial.iloc[:, 2].to_numpy()
-            hd_rad = np.deg2rad(hd)
+            x, y, hd_rad = get_xy_pos(pos_data_dir, tr)
 
             # Length of trial
-            spike_train_this_trial =  [el for el in spike_train_this_trial if el > np.round(trial_dur_so_far+ start_time)*frame_rate] # filtering for current trial
-            spike_train_this_trial = [el - trial_dur_so_far*frame_rate for el in spike_train_this_trial] # setting 0 as start of trial
-            spike_train_this_trial = [el for el in spike_train_this_trial if el < len(x)] # We're not plotting more than the spatial data we have
+            spike_train_this_trial = get_spikes_tr(spike_train, trial_dur_so_far, start_time, x, frame_rate)
 
             # Make plots
             # Obtaining ratemap data
             rmap, x_edges, y_edges = get_ratemaps(spike_train_this_trial, x, y, 3, binsize=25, stddev=5)
-            
-            axs[counter].imshow(rmap.T, 
-                    cmap='viridis', 
-                    interpolation = None,
-                    origin='lower', 
-                    aspect='auto', 
-                    extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]])
-
-            axs[counter].set_title(f"n = {len(spike_train_this_trial)}")
-            axs[counter].set_xlim(550, 2050)
-            axs[counter].set_ylim(1750, 250)
-            axs[counter].set_aspect('equal')
+            plot_rmap(rmap,xmin, xmax, ymin, ymax, x_edges, y_edges, outline_x = None, outline_y = None, ax = axs[counter], fig)
             counter += 1
-
             trial_dur_so_far += trial_length
 
             # Looping over epochs
@@ -260,93 +166,35 @@ def make_spatiotemp_plots(derivatives_base, rawsession_folder, trials_to_include
                 # Obtain epoch start and end times
                 epoch_start = trial_row.iloc[0, 2*e-1]
                 epoch_end = trial_row.iloc[0, 2*e]
-
-                spike_train_this_epoch = [np.int32(el) for el in spike_train_this_trial if el > frame_rate*epoch_start and el < frame_rate *epoch_end]
-                spike_train_this_epoch = np.asarray(spike_train_this_epoch, dtype=int)
-
+                spike_train_this_epoch = get_spikes_epoch(spike_train_this_trial, epoch_start, epoch_end, frame_rate)
+                
                 
                 # Spike plot
-                x_until_now = x[:np.int32(epoch_end*frame_rate)]
-                y_until_now = y[:np.int32(epoch_end*frame_rate)]
-                axs[counter].scatter(x_until_now, y_until_now, color = 'black', s= 0.7)
-                if len(spike_train_this_epoch) > 0:
-                    axs[counter].scatter(x[spike_train_this_epoch], y[spike_train_this_epoch], color = 'r', s= 0.7)
-                axs[counter].set_xlim(550, 2050)
-                axs[counter].set_ylim(1750,250)
-
-                axs[counter].set_aspect('equal', adjustable='box')
+                plot_spikes_spatiotemp(spike_train_this_epoch, x, y, epoch_end, frame_rate, xmin, xmax, ymin, ymax, ax = axs[counter], title = None)
                 counter += 1
 
                 # HD calculations
                 if len(spike_train_this_epoch) > 0:
                     # Obtaining hd for this epoch and calculating how much the animal sampled in each bin
-                    hd_this_epoch = hd[np.int32(epoch_start*frame_rate):np.int32(epoch_end*frame_rate)]
-                    hd_this_epoch = hd_this_epoch[~np.isnan(hd_this_epoch)]
-                    hd_this_epoch_rad = np.deg2rad(hd_this_epoch)
-                    occupancy_counts, _ = np.histogram(hd_this_epoch_rad, bins=num_bins, range = [-np.pi, np.pi])
-                    occupancy_time = occupancy_counts / frame_rate 
-
-                    # Getting the spike times and making a histogram of them
-                    spikes_hd = hd[spike_train_this_epoch]
-                    spikes_hd = spikes_hd[~np.isnan(spikes_hd)]
-                    spikes_hd_rad = np.deg2rad(spikes_hd)
-                    counts, bin_edges = np.histogram(spikes_hd_rad, bins=num_bins,range = [-np.pi, np.pi] )
-
-                    # Calculating directional firing rate
-                    direction_firing_rate = np.divide(counts, occupancy_time, out=np.full_like(counts, 0, dtype=float), where=occupancy_time!=0)
-
+                    hd_this_epoch = hd_rad[np.int32(epoch_start*frame_rate):np.int32(epoch_end*frame_rate)]
+                    occupancy_time = get_occupancy_time(hd_this_epoch, frame_rate, num_bins = num_bins)
+                    direction_firing_rate, bin_centers = get_directional_firingrate(hd_rad, spike_train_this_epoch, num_bins, occupancy_time)
+                    
                     # Getting significance
-                    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
                     MRL = resultant_vector_length(bin_centers, w = direction_firing_rate)
                     percentiles_95_value, percentiles_99_value, _ = get_sig_cells(spike_train_this_epoch, hd_rad, epoch_start*frame_rate, epoch_end*frame_rate, occupancy_time, n_bins = num_bins)
                     mu = circmean(bin_centers, weights = direction_firing_rate)
 
                     # Add significance data for every element (even if not significant)
-                    new_element = {
-                        'cell': unit_id,
-                        'trial': tr,
-                        'epoch': e,
-                        'MRL': MRL,
-                        'mean_direction': np.rad2deg(mu),
-                        'percentiles95': percentiles_95_value,
-                        'percentiles99': percentiles_99_value,
-                        'significant': 'ns', 
-                        'num_spikes': len(spike_train_this_epoch)
-                    }
+                    new_element = make_new_element(unit_id, tr, e, MRL, mu, percentiles_95_value, percentiles_99_value, spike_train_this_epoch)
 
-                    if MRL > percentiles_95_value:
-                        new_element['significant'] = 'sig'
                     directional_data_all_units.loc[len(directional_data_all_units)] = new_element
                 
                 # Plot
                 fig.delaxes(axs[counter])
                 axs[counter] = fig.add_subplot(n_rows, n_cols, counter+1, polar=True)
-                width = np.diff(bin_centers)[0]
 
-                if len(spike_train_this_epoch) > 0:
-                    bars = axs[counter].bar(
-                        bin_centers,
-                        direction_firing_rate,
-                        width=width,
-                        bottom=0.0,
-                        alpha=0.8
-                    )
-
-                    if MRL > percentiles_95_value:
-                        text = f"MRL = {MRL:.2f}*"
-                    else:
-                        text = f"MRL = {MRL:.2f}"
-                    axs[counter].text(
-                        np.pi/3,                # angle in radians
-                        np.nanmax(direction_firing_rate)*1.25,         # radius (just outside the bar)
-                        text,   # label text
-                        ha='center',
-                        va='bottom',
-                        fontsize=8,
-                        rotation_mode='anchor',
-                        color = 'r',
-                    )
-                axs[counter].set_title(f"n = {len(spike_train_this_epoch)}")
+                plot_directional_firingrate(bin_centers, direction_firing_rate, ax = axs[counter], title = f"n = {len(spike_train_this_epoch)}", MRL = MRL, percentiles_95_value = percentiles_95_value)
                 counter += 1 
 
         # Saving data

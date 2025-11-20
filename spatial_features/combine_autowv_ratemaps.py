@@ -7,6 +7,8 @@ from typing import Literal
 import spikeinterface.extractors as se
 import matplotlib.pyplot as plt
 import pandas as pd
+from spatial_features.utils.spatial_features_utils import load_unit_ids, get_outline, get_limits, get_posdata, get_occupancy_time, get_ratemaps, get_spike_train_frames, get_directional_firingrate
+
 
 def combine_autowv_ratemaps(derivatives_base, unit_type: Literal['pyramidal', 'good', 'all']):
     """
@@ -25,22 +27,15 @@ def combine_autowv_ratemaps(derivatives_base, unit_type: Literal['pyramidal', 'g
     sorting = se.read_kilosort(
         folder_path = kilosort_output_path
     )
-    unit_ids = sorting.unit_ids
-
-    if unit_type == 'good':
-        good_units_path = os.path.join(derivatives_base, "ephys", "concat_run", "sorting","sorter_output", "cluster_group.tsv")
-        good_units_df = pd.read_csv(good_units_path, sep='\t')
-        unit_ids = good_units_df[good_units_df['group'] == 'good']['cluster_id'].values
-        print("Using all good units")
-    elif unit_type == 'pyramidal':
-        pyramidal_units_path = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features","all_units_overview", "pyramidal_units_2D.csv")
-        pyramidal_units_df = pd.read_csv(pyramidal_units_path)
-        pyramidal_units = pyramidal_units_df['unit_ids'].values
-        unit_ids = pyramidal_units
-    
+    # output paths
     output_folder =os.path.join(derivatives_base, "analysis", "cell_characteristics", "spatial_features",  "autowv_ratemap_combined")
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
+       
+    # getting unit ids
+    unit_ids = sorting.unit_ids
+    unit_ids = load_unit_ids(derivatives_base, unit_type, unit_ids)
+    
             
     print("Combining autocorrelogram + waveform plots with ratemap + hd plots")
     print(f"Path to output folder: {output_folder}")

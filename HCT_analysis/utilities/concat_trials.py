@@ -12,12 +12,12 @@ def concat_trials(rawsession_folder):
         rawsession_folder: path to the raw session folder
         
     Output:
-        concatenated_trials.csv in rawsession_folder/behaviour
+        rawsession_folder/behaviour/concatenated_trials.csv: all trials concatenated
     """
-    # Get a list of all trial files
+    # List of all trial files
     trial_files = glob.glob(os.path.join(rawsession_folder, "behaviour", "*_g*.csv"))
 
-    # Read and concatenate all trial files
+    # Add each trial csv to df_list
     df_list = []
     for file in trial_files:
         df = pd.read_csv(file)
@@ -27,7 +27,7 @@ def concat_trials(rawsession_folder):
 
     concatenated_df = pd.concat(df_list, ignore_index=True)
 
-    # Save the concatenated dataframe to a new csv file
+    # Saving
     output_file = os.path.join(rawsession_folder, "behaviour", "concatenated_trials.csv")
     concatenated_df.to_csv(output_file, index=False)
 

@@ -56,8 +56,8 @@ def plot_and_save_g(g, movement_data_folder, name, suptitle):
 def get_xy(position, keypoints):
     if keypoints == 'ears':
         pos_xy = position.sel(keypoints=["left_ear", "right_ear"]).mean(dim="keypoints")
-    elif keypoints == 'center':
-        pos_xy  = position.sel(keypoints="center", drop=True)
+    else:
+        pos_xy  = position.sel(keypoints=keypoints, drop=True)
     x_vals = pos_xy.sel(space = 'x')
     x =  x_vals.values.flatten()
     
@@ -277,6 +277,29 @@ def run_movement(derivatives_base, trials_to_include, show_plots = False,  frame
             plt.show(block = True)
         if not show_plots:
             plt.close('all')
+            
+         # -------------Skeleton data------------- 
+        
+        # Saving center coordinates (used in consink code)
+        x_center, y_center = get_xy(position, 'center')
+        x_le, y_le = get_xy(position, 'left_ear')
+        x_re, y_re = get_xy(position, 'right_ear')
+        
+        df = pd.DataFrame({
+            "x_center":     x_center,
+            "y_center":     y_center,
+            "x_le":     x_le,
+            "y_le":     y_le,
+            "x_re":     x_re,
+            "y_re":     y_re,
+            "hd":    hd,
+        })
+
+        # save to CSV
+        csv_path = os.path.join(positional_data_folder, f"XY_HD_skeleton_t{tr}.csv")
+        df.to_csv(csv_path, index=False)
+        print(f"→ Saved positional + HD data to {csv_path}")
+        
 
 
 def main():

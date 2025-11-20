@@ -39,7 +39,9 @@ def mrlData(spikePos, spikeHD, spikePlats, relDirDist, binEdges, sink_bins):
 
     # They use a different function, but its basically the same
     dirRel2Goal_histCounts = getRelDirDist(spikePos, spikeHD, xAxis, yAxis, binEdges, normalize = False) 
-    normDist = dirRel2Goal_histCounts/totalDist_Rel
+    #normDist = dirRel2Goal_histCounts/totalDist_Rel
+    print("new methods")
+    normDist = dirRel2Goal_histCounts
     sumNormDist = normDist.sum(axis = 2)
     normDistFactor = len(spikeHD)/sumNormDist
     normDist = normDist * normDistFactor[..., None]

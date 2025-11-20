@@ -11,6 +11,8 @@ import json
 from typing import Literal
 import warnings
 from astropy.stats import circmean
+from spatial_features.utils.spatial_features_utils import load_unit_ids, get_outline, get_limits, get_posdata, get_occupancy_time, get_ratemaps, get_spike_train_frames, get_directional_firingrate
+from spatial_features.utils.spatial_features_plots import plot_rmap, plot_occupancy, plot_directional_firingrate
 
 def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good', 'all'],  frame_rate = 25, sample_rate = 30000):
     """ 
@@ -25,137 +27,52 @@ def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good
         folder_path = kilosort_output_path
     )
     unit_ids = sorting.unit_ids
-
-    if unit_type == 'good':
-        good_units_path = os.path.join(derivatives_base, "ephys", "concat_run", "sorting","sorter_output", "cluster_group.tsv")
-        good_units_df = pd.read_csv(good_units_path, sep='\t')
-        unit_ids = good_units_df[good_units_df['group'] == 'good']['cluster_id'].values
-        print("Using all good units")
-    elif unit_type == 'pyramidal':
-        pyramidal_units_path = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features","all_units_overview", "pyramidal_units_2D.csv")
-        pyramidal_units_df = pd.read_csv(pyramidal_units_path)
-        pyramidal_units = pyramidal_units_df['unit_ids'].values
-        unit_ids = pyramidal_units
     
-    
-    # Limits
-    limits_path = os.path.join(derivatives_base, "analysis", "maze_overlay", "limits.json")
-    with open(limits_path) as json_data:
-        limits = json.load(json_data)
-        json_data.close()
-    
-    xmin = limits['xmin']
-    xmax = limits['xmax']
-    ymin = limits['ymin']
-    ymax = limits['ymax']
-    
-    # ---- Load maze outline coordinates ----
-    outline_path = os.path.join(derivatives_base, "analysis", "maze_overlay", "maze_outline_coords.json")
-    if os.path.exists(outline_path):
-        with open(outline_path, "r") as f:
-            outline = json.load(f)
-        outline_x = outline["outline_x"]
-        outline_y = outline["outline_y"]
-    else:
-        print("⚠️ Maze outline JSON not found; skipping red outline overlay.")
-        outline_x, outline_y = None, None
-        
-    # Get directory for the positional data
-    pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'XY_HD_alltrials.csv')
-    pos_data = pd.read_csv(pos_data_path)
-
-    x = pos_data.iloc[:, 0].to_numpy()
-    y = pos_data.iloc[:, 1].to_numpy()
-    hd = pos_data.iloc[:, 2].to_numpy()
-    
-    # output folder
+    # Output folder
     output_folder = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'spatial_features', 'ratemaps_and_hd')
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
+
+    # Here unit ids get filtered by unit_type
+    unit_ids = load_unit_ids(derivatives_base, unit_type, unit_ids)
+    
+    # Limits and outline
+    xmin, xmax, ymin, ymax = get_limits(derivatives_base)
+    outline_x, outline_y = get_outline(derivatives_base)
         
-        
-    # Loop over units
-    print("Plotting ratemaps and hd")
+    # Get directory for the positional data
+    x, y, hd,_ = get_posdata(derivatives_base, method = "ears")
 
     # Obtaining hd for this trial how much the animal sampled in each bin
     num_bins = 24
-    hd_filtered = hd[~np.isnan(hd)]
-    hd_filtered= np.deg2rad(hd_filtered)
-    occupancy_counts, _ = np.histogram(hd_filtered, bins=num_bins, range = [-np.pi, np.pi])
-    occupancy_time = occupancy_counts / frame_rate 
+    occupancy_time = get_occupancy_time(hd, frame_rate, num_bins = num_bins)
 
-
+     # Loop over units
+    print("Plotting ratemaps and hd")
     for unit_id in tqdm(unit_ids):
+        
         # Load spike data
-        spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
-        spike_train_pre = np.round(spike_train_unscaled*frame_rate/sample_rate) # trial data is now in frames in order to match it with xy data
-        spike_train = [np.int32(el) for el in spike_train_pre if el < len(x)]  # Ensure spike train is within bounds of x and y
+        spike_train = get_spike_train_frames(sorting, unit_id, x, sample_rate, frame_rate)
+        
         # Make plot
         fig, axs = plt.subplots(1, 3, figsize = [15, 5])
         axs = axs.flatten()
         fig.suptitle(f"Unit {unit_id}", fontsize = 18)
 
-        # Plot ratemap
+        # ===== Plot ratemap ====
         rmap, x_edges, y_edges = get_ratemaps(spike_train, x, y, 3, binsize=36, stddev=25)
-            
-        im = axs[0].imshow(rmap.T, 
-                cmap='viridis', 
-                interpolation = None,
-                origin='lower', 
-                aspect='auto', 
-                extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]])
+        plot_rmap(rmap, xmin, xmax, ymin, ymax, x_edges, y_edges, outline_x, outline_y, ax = axs[0], fig = fig, title = f"n = {len(spike_train)}")
 
-        axs[0].set_title(f"n = {len(spike_train)}")
-        axs[0].set_xlim(xmin, xmax)
-        axs[0].set_ylim(ymax, ymin)
-        axs[0].set_aspect('equal')
-        if outline_x is not None and outline_y is not None:
-                axs[0].plot(outline_x, outline_y, 'r-', lw=2, label='Maze outline')
-        fig.colorbar(im, ax=axs[0], label='Firing rate')
+        # ==== Plot occupancy ====
+        plot_occupancy(x, y, xmin, xmax, ymin, ymax, outline_x, outline_y, frame_rate, axs[1], fig)
 
-    
-        # 2. Plot occupancy
-        x_no_nan =  x[~pd.isna(x)]
-        y_no_nan = y[~pd.isna(y)]
-        heatmap_data, xbins, ybins  = np.histogram2d(x_no_nan, y_no_nan, bins=30, range=[[xmin, xmax], [ymin, ymax]])
-        heatmap_data = heatmap_data/frame_rate
-
-        hm_nozero = heatmap_data[heatmap_data != 0]
-        mean_hm = np.mean(hm_nozero)
-        std_hm = np.std(hm_nozero)
-        
-        threshold = mean_hm + std_hm
-        heatmap_data[heatmap_data > threshold] = 0
-
-        im = axs[1].imshow(
-                heatmap_data.T,
-                cmap='viridis',
-                interpolation=None,
-                origin='upper',
-                aspect='auto',
-                extent=[xmin, xmax, ymax, ymin]
-            )
-        fig.colorbar(im, ax=axs[1], label='Seconds')
-        if outline_x is not None and outline_y is not None:
-            axs[1].plot(outline_x, outline_y, 'r-', lw=2, label='Maze outline')
-        axs[1].set_title('Occupancy full session')
-        axs[1].set_aspect('equal')
-
-        # Plot HD
-        # Getting the spike times and making a histogram of them
-        spikes_hd = hd[spike_train]
-        spikes_hd = spikes_hd[~np.isnan(spikes_hd)]
-        spikes_hd_rad = np.deg2rad(spikes_hd)
-        counts, bin_edges = np.histogram(spikes_hd_rad, bins=num_bins,range = [-np.pi, np.pi] )
-
-        
-        # Calculating directional firing rate
-        direction_firing_rate = np.divide(counts, occupancy_time, out=np.full_like(counts, 0, dtype=float), where=occupancy_time!=0)
+        # === Plot HD ===
+        direction_firing_rate, bin_centers = get_directional_firingrate(hd, spike_train, num_bins, occupancy_time)
         fig.delaxes(axs[2])
         axs[2] = fig.add_subplot(1,3,3, polar=True)
+        plot_directional_firingrate(bin_centers, direction_firing_rate, ax = axs[2])
 
-        # MRL adn significance
-        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+        
         if False:
             MRL = resultant_vector_length(bin_centers, w = direction_firing_rate)
             perc_95, perc_99, MRL_values, shift_value = get_sig_cells(spike_train, np.deg2rad(hd),0, len(hd) -1, occupancy_time )
@@ -169,16 +86,8 @@ def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good
                 print(perc_95)
             else:
                 text = f'MRL: {MRL:.2f}, ns'
-        # Plotting
-        width = np.diff(bin_centers)[0]
-        axs[2].bar(
-            bin_centers,
-            direction_firing_rate,
-            width=width,
-            bottom=0.0,
-            alpha=0.8
-        )
-        if False:
+
+        
             max_rate = np.nanmax(direction_firing_rate)
             axs[2].plot(
                 [angle, angle],               # theta values
@@ -192,14 +101,10 @@ def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good
             axs[2].text(0.05, 1.05, text, transform=axs[2].transAxes)
             axs[2].legend(loc='upper right', bbox_to_anchor=(1.2, 1.1))
 
-
-        #axs[2].text(180, np.nanmax(direction_firing_rate) * 1.5, text)
-            print(f'angle = {np.rad2deg(angle)}')
         output_path = os.path.join(output_folder, f"unit_{unit_id}_rm_hd.png")
-        
-        plt.show()
         plt.savefig(output_path)
         plt.close(fig)
+        
         if False:
             try:
                 plt.hist(MRL_values, bins = 30, color = 'lightblue')

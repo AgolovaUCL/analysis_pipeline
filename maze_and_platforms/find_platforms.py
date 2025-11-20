@@ -7,16 +7,7 @@ def calculate_cartesian_coords(coord, hex_side_length):
     vcoord = [hex_side_length * np.sqrt(3) * (c[1] - c[2]) / 2.0 for c in coord]  # Vertical: scaled
     return hcoord, vcoord
 
-def get_coordinates(params):
-    radius = params['radius']
-    hex_side_length = params['hex_side_length']
-    theta = params['theta_angle']
-    x_center = params['x_center']
-    y_center = params['y_center']
-    coord = hex_grid(radius)
-    
-    hcoord2, vcoord2 = calculate_cartesian_coords(coord, hex_side_length)
-    
+def translate_coords(hcoord2, vcoord2, theta, x_center, y_center):
     hcoord_rotated = [x * np.cos(theta) - y * np.sin(theta) for x, y in zip(hcoord2, vcoord2)]
     vcoord_rotated = [x * np.sin(theta) + y * np.cos(theta) for x, y in zip(hcoord2, vcoord2)]
     vcoord_rotated = [-v for v in vcoord_rotated]
@@ -29,6 +20,19 @@ def get_coordinates(params):
     # Apply the translation
     hcoord_translated = [x + dx for x in hcoord_rotated]
     vcoord_translated = [y + dy for y in vcoord_rotated]
+    return hcoord_translated, vcoord_translated
+    
+def get_coordinates(params):
+    radius = params['radius']
+    hex_side_length = params['hex_side_length']
+    theta = params['theta_angle']
+    x_center = params['x_center']
+    y_center = params['y_center']
+    coord = hex_grid(radius)
+    
+    hcoord2, vcoord2 = calculate_cartesian_coords(coord, hex_side_length)
+    
+    hcoord_translated, vcoord_translated = translate_coords(hcoord2, vcoord2, theta, x_center, y_center)
     return hcoord_translated, vcoord_translated
     
 def hex_grid(radius):

@@ -18,6 +18,7 @@ from astropy.stats import circmean
 from tqdm import tqdm
 from typing import Literal
 cm_per_pixel = 1
+import warnings
 
 def rel_dir_distribution_all_sinks(spike_train, sink_bins, candidate_sinks, direction_bins, pos_data):
    
@@ -29,28 +30,36 @@ def rel_dir_distribution_all_sinks(spike_train, sink_bins, candidate_sinks, dire
     PRETTY SURE THIS DOESN'T NEED THE FIRST SET OF X AND Y LOOPS!!!!!!!!!!!!!!! FIX IT!!!!!!!!!! <- note by Jake, unsure if true
 
     """
-    x = pos_data.iloc[:, 0].to_numpy()
-    y = pos_data.iloc[:, 1].to_numpy()
-    hd = pos_data.iloc[:, 2].to_numpy()
+    x_org = pos_data.iloc[:, 0].to_numpy()
+    y_org = pos_data.iloc[:, 1].to_numpy()
+    hd_org = pos_data.iloc[:, 2].to_numpy()
 
-    spike_train = [el for el in spike_train if el < len(x)]  # Ensure spike train is within bounds of x and y
+    spike_train = [el for el in spike_train if el < len(x_org)]  # Ensure spike train is within bounds of x and y
     # Finding spike times for this unit
-    x = x[spike_train]
-    y = y[spike_train]
-    hd = hd[spike_train]
+    x = x_org[spike_train]
+    y = y_org[spike_train]
+    hd = hd_org[spike_train]
 
 
+    # Remove nans
+    mask = np.isnan(hd)|np.isnan(x)
+    x = x[~mask]
+    y = y[~mask]
+    hd = hd[~mask]
+    
     # create array to store relative direction histograms
     rel_dir_dist = np.zeros((len(candidate_sinks['y']), len(candidate_sinks['x']), len(direction_bins) - 1))  
    
 
     x_bin = np.digitize(x, sink_bins['x']) - 1
     # find x_bin == n_x_bins, and set it to n_x_bins - 1
-    x_bin[x_bin == (len(sink_bins['x'])-1)] = len(sink_bins['x'])-2
+    if len(x_bin) > 1:
+        x_bin[x_bin == (len(sink_bins['x'])-1)] = len(sink_bins['x'])-2
 
     y_bin = np.digitize(y, sink_bins['y']) - 1
     # find y_bin == n_y_bins, and set it to n_y_bins - 1
-    y_bin[y_bin == (len(sink_bins['y'])-1)] = len(sink_bins['y'])-2
+    if len(y_bin) > 1:
+        y_bin[y_bin == (len(sink_bins['y'])-1)] = len(sink_bins['y'])-2
 
     # loop through the x and y bins
     for i in range(np.max(x_bin)+1):
@@ -96,24 +105,34 @@ def rel_dir_ctrl_distribution_all_sinks(spike_train, reldir_occ_by_pos, sink_bin
     hd = pos_data.iloc[:, 2].to_numpy()
 
     spike_train = [el for el in spike_train if el < len(x)]  # Ensure spike train is within bounds of x and y
+    
     # Finding spike times for this unit
     x = x[spike_train]
     y = y[spike_train]
     hd = hd[spike_train]
 
+    # Remove nans
+    mask = np.isnan(hd)|np.isnan(x)
+    x = x[~mask]
+    y = y[~mask]
+    hd = hd[~mask]
+
     x_bin = np.digitize(x, sink_bins['x']) - 1
     # find x_bin == n_x_bins, and set it to n_x_bins - 1
-    x_bin[x_bin == (len(sink_bins['x'])-1)] = len(sink_bins['x'])-2
+    if len(x_bin) > 1:
+        x_bin[x_bin == (len(sink_bins['x'])-1)] = len(sink_bins['x'])-2
 
     y_bin = np.digitize(y, sink_bins['y']) - 1
     # find y_bin == n_y_bins, and set it to n_y_bins - 1
-    y_bin[y_bin == (len(sink_bins['y'])-1)] = len(sink_bins['y'])-2
+    if len(y_bin) > 1:
+        y_bin[y_bin == (len(sink_bins['y'])-1)] = len(sink_bins['y'])-2
 
     direction_bins = get_direction_bins(n_bins=12)
     rel_dir_ctrl_dist = np.zeros((len(candidate_sinks['y']), len(candidate_sinks['x']), len(direction_bins) -1))
 
     # loop through the x and y bins
     n_spikes_total = 0
+
     for i in range(np.max(x_bin)+1):
         for j in range(np.max(y_bin)+1):
             # get the indices where x_bin == i and y_bin == j
@@ -129,6 +148,7 @@ def rel_dir_ctrl_distribution_all_sinks(spike_train, reldir_occ_by_pos, sink_bin
             # Add (n_y_sinks, n_x_sinks, n_dir_bins)*n_spikes (scale by how many spikes are fired there)
             rel_dir_ctrl_dist = rel_dir_ctrl_dist + reldir_occ_by_pos[j,i,:,:,:] * n_spikes
 
+
     return rel_dir_ctrl_dist, n_spikes_total
 
 def normalize_rel_dir_dist(rel_dir_dist, rel_dir_ctrl_dist, n_spikes_total):
@@ -137,7 +157,12 @@ def normalize_rel_dir_dist(rel_dir_dist, rel_dir_ctrl_dist, n_spikes_total):
     """
 
     # first, divide rel_dir_dist by rel_dir_ctrl_dist
-    rel_dir_dist_div_ctrl = rel_dir_dist/rel_dir_ctrl_dist 
+    rel_dir_dist_div_ctrl = np.divide(
+        rel_dir_dist,
+        rel_dir_ctrl_dist,
+        out=np.zeros_like(rel_dir_dist, dtype=float),
+        where=rel_dir_ctrl_dist != 0
+    )
 
     # now we want the counts in each histogram to sum to the total number of spikes
     if len(rel_dir_dist_div_ctrl.shape) > 1:
@@ -146,8 +171,14 @@ def normalize_rel_dir_dist(rel_dir_dist, rel_dir_ctrl_dist, n_spikes_total):
 
     else:
         sum_rel_dir_dist_div_ctrl_ex = rel_dir_dist_div_ctrl.sum()
-        
-    normalised_rel_dir_dist = (rel_dir_dist_div_ctrl/sum_rel_dir_dist_div_ctrl_ex) * n_spikes_total
+
+    normalised_rel_dir_dist = np.divide(
+        rel_dir_dist_div_ctrl,
+        sum_rel_dir_dist_div_ctrl_ex,
+        out=np.zeros_like(rel_dir_dist, dtype=float),
+        where=sum_rel_dir_dist_div_ctrl_ex != 0
+    )
+    normalised_rel_dir_dist = normalised_rel_dir_dist* n_spikes_total
 
     return normalised_rel_dir_dist
 
@@ -171,6 +202,7 @@ def mean_resultant_length_nrdd(normalised_rel_dir_dist, direction_bins):
             mrl[i,j] = resultant_vector_length(dir_bin_centres, w=normalised_rel_dir_dist[i,j,:])
             mean_angle[i,j] = circmean(dir_bin_centres, weights=normalised_rel_dir_dist[i,j,:])
 
+            warnings.filterwarnings("error")
     return mrl, mean_angle
 
 def plot_all_consinks(consinks_df, goal_coordinates, hcoord, vcoord,  limits, jitter, plot_dir, plot_name='ConSinks'):
@@ -262,11 +294,35 @@ def plot_all_consinks(consinks_df, goal_coordinates, hcoord, vcoord,  limits, ji
     print(f"Saved figure to {os.path.join(plot_dir, plot_name + '.png')}")
     plt.show()
 
+def verify_allnans(spike_train, pos_data):
+    """ Verifies that not all values are nan values"""
+    x_org = pos_data.iloc[:, 0].to_numpy()
+    y_org = pos_data.iloc[:, 1].to_numpy()
+    hd_org = pos_data.iloc[:, 2].to_numpy()
+
+    spike_train = [el for el in spike_train if el < len(x_org)]  # Ensure spike train is within bounds of x and y
+    # Finding spike times for this unit
+    x = x_org[spike_train]
+    y = y_org[spike_train]
+    hd = hd_org[spike_train]
+
+    mask = np.isnan(x) | np.isnan(hd)
+    false_vals = np.where(mask == False)[0]
+    if len(false_vals) < 2:
+        return True
+    else:
+        return False
+
 
 def find_consink(spike_train, reldir_occ_by_pos, sink_bins, direction_bins, candidate_sinks, pos_data):
     """
     Find the consink position that maximises the mean resultant length of the normalised relative direction distribution. 
     """
+    all_nans = verify_allnans(spike_train, pos_data)
+
+    if all_nans:
+        print("All nans. Returning nan")
+        return np.nan, np.nan, np.nan
     #  get control occupancy distribution
     rel_dir_ctrl_dist, n_spikes_total = rel_dir_ctrl_distribution_all_sinks(spike_train, reldir_occ_by_pos, sink_bins, candidate_sinks, pos_data)
 
@@ -275,7 +331,8 @@ def find_consink(spike_train, reldir_occ_by_pos, sink_bins, direction_bins, cand
 
     # normalise rel_dir_dist by rel_dir_ctrl_dist
     normalised_rel_dir_dist = normalize_rel_dir_dist(rel_dir_dist, rel_dir_ctrl_dist, n_spikes_total)
-
+    if np.isnan(normalised_rel_dir_dist).any():
+        breakpoint()
     # calculate the mean resultant length of the normalised relative direction distribution
     mrl, mean_angle = mean_resultant_length_nrdd(normalised_rel_dir_dist, direction_bins)
 
@@ -325,7 +382,11 @@ def recalculate_consink_to_all_candidates_from_translation(spiketrain, dlc_data,
     n_shuffles = 1000
     mrl = np.zeros(n_shuffles)
 
-    mrl = Parallel(n_jobs=-1, verbose=0)(delayed(calculate_translated_mrl)(spiketrain, dlc_data, reldir_occ_by_pos, sink_bins, direction_bins, candidate_sinks) for s in range(n_shuffles))
+
+    #mrl = Parallel(n_jobs=-1, verbose=0)(delayed(calculate_translated_mrl)(spiketrain, dlc_data, reldir_occ_by_pos, sink_bins, direction_bins, candidate_sinks) for s in range(n_shuffles))
+    mrl = Parallel(n_jobs=1, verbose=0)(
+        delayed(calculate_translated_mrl)(spiketrain, dlc_data, reldir_occ_by_pos, sink_bins, direction_bins,
+                                          candidate_sinks) for s in range(n_shuffles))
     #mrl = [calculate_translated_mrl(spiketrain, dlc_data, reldir_occ_by_pos, sink_bins, direction_bins, candidate_sinks) for s in range(n_shuffles)]
     mrl = np.round(mrl, 3)
     mrl_95 = np.percentile(mrl, 95)
@@ -335,6 +396,16 @@ def recalculate_consink_to_all_candidates_from_translation(spiketrain, dlc_data,
     
     return ci
 
+def get_spike_train(sorting, unit_id, pos_data,  rawsession_folder, g, frame_rate, sample_rate):
+    """ Obtains the spike train and restricts it to the goal"""
+    spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
+    spike_train_secs = spike_train_unscaled / sample_rate  # This is in seconds now
+    # Restrict spiketrain to goal
+    spike_train_secs_g = restrict_spiketrain_specialbehav(spike_train_secs, rawsession_folder, goal=g)
+    # Now let spiketrain be in frame_rate
+    spike_train = np.round(spike_train_secs_g * frame_rate)
+    spike_train = [np.int32(el) for el in spike_train if el < len(pos_data)]
+    return spike_train
 
     
 def main(derivatives_base, rel_dir_occ: Literal['all trials', 'intervals'], unit_type: Literal['pyramidal', 'good', 'all'], code_to_run = [], frame_rate = 25, sample_rate = 30000):
@@ -451,7 +522,18 @@ def main(derivatives_base, rel_dir_occ: Literal['all trials', 'intervals'], unit
             consinks[unit_id] = {'unit_id': unit_id}
 
             for g in [0, 1, 2]:
-                reldir_occ_by_pos_cur = reldir_occ_by_pos
+                if g == 0:
+                     # store with goal suffix
+                    consinks[unit_id][f'mrl_g{g}'] = np.nan
+                    consinks[unit_id][f'position_g{g}'] = np.nan
+                    consinks[unit_id][f'mean_angle_g{g}'] = np.nan
+                    continue
+                if g == 1:
+                    reldir_occ_by_pos_cur = reldir_occ_by_pos_g1
+                elif g == 2:
+                    reldir_occ_by_pos_cur = reldir_occ_by_pos_g2
+                else:
+                    reldir_occ_by_pos_cur = reldir_occ_by_pos
                     
                 # Find spiketrain
                 spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
@@ -517,13 +599,20 @@ def main(derivatives_base, rel_dir_occ: Literal['all trials', 'intervals'], unit
 
         for unit_id in tqdm(unit_ids):
             for g in [0, 1,2]:
-                reldir_occ_by_pos_cur = reldir_occ_by_pos # Not splitting by position
-                
-                spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
-                spike_train_secs = spike_train_unscaled / sample_rate
-                spike_train_secs_g = restrict_spiketrain_specialbehav(spike_train_secs, rawsession_folder, goal=g)
-                spike_train = np.round(spike_train_secs_g*frame_rate) # trial data is now in frames in order to match it with xy data
-                spike_train = [np.int32(el) for el in spike_train if el < len(pos_data)]  # Ensure spike train is within bounds of x and y
+                if g == 0:
+                    consinks_df.loc[unit_id, f'ci_95_g{g}'] = np.nan
+                    consinks_df.loc[unit_id, f'ci_999_g{g}'] = np.nan
+                    continue
+                if g == 1:
+                    reldir_occ_by_pos_cur = reldir_occ_by_pos_g1
+                elif g == 2:
+                    reldir_occ_by_pos_cur = reldir_occ_by_pos_g2
+                else:
+                    reldir_occ_by_pos_cur = reldir_occ_by_pos
+                    
+                print(f'Were at {unit_id} with { g}' )
+
+                spike_train = get_spike_train(sorting, unit_id, pos_data,  rawsession_folder, g, frame_rate, sample_rate)
 
                 if len(spike_train) == 0:
                     continue
@@ -546,7 +635,7 @@ def main(derivatives_base, rel_dir_occ: Literal['all trials', 'intervals'], unit
         os.makedirs(plot_dir)
 
     hcoord, vcoord = get_coords(derivatives_base)
-    # Check if consinks_df is a dictionairy otherwise convert
+    # Check if consinks_df is a dictionary otherwise convert
     consinks_df = load_pickle('consinks_df', output_folder)
     
 
@@ -555,7 +644,7 @@ def main(derivatives_base, rel_dir_occ: Literal['all trials', 'intervals'], unit
 if __name__ == "__main__":
     
     
-    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
-    main(derivatives_base, 'intervals', 'good', code_to_run=[0, 1,2])
+    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-02_date-11092025\all_trials"
+    main(derivatives_base, 'intervals', 'pyramidal', code_to_run=[ 1,2])
 
 

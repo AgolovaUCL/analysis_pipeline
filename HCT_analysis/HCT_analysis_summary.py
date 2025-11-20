@@ -31,14 +31,12 @@ def run_HCT(rawsession_folder, derivatives_base):
     concat_trials(rawsession_folder)
     
     # Takes the alltrials csv and creates a new csv only with the rows of the trial date
-    #append_alltrials(rawsession_folder)
+    append_alltrials(rawsession_folder)
     
     # Find goal numbers. NOTE: add here to make json with goal_platofmrs and goal coordinates
     goal_platforms = get_goal_numbers(rawsession_folder)
     
-    # Finds the start and stop time for each trial, so that we can restrict spike times to for each goal
-    # NOTE Is based on the labview data, which isn't synced with the spike data yet.
-    #create_intervals_df(rawsession_folder)
+    # NOTE: here we should create the intervals, but we should use the new code.add()
     
     ############ Plotting ###########
     # Shows a maze plot with the occupancy of each platform for goal 1 (left) goal 2 (middle) and all trials (right)
