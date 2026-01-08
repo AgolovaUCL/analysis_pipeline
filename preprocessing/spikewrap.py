@@ -9,7 +9,7 @@ import spikeinterface as si
 import json
 from pathlib import Path
 
-def run_spikewrap(derivatives_base, subject_path, session_name):
+def run_spikewrap(derivatives_base, subject_path, session_name, concat_runs = True):
     """
     Function runs spikewrap
     Input:
@@ -42,7 +42,7 @@ def run_spikewrap(derivatives_base, subject_path, session_name):
     session.preprocess(
         configs="neuropixels+kilosort2_5",
         per_shank=False,
-        concat_runs=True,
+        concat_runs=concat_runs,
     )
 
 

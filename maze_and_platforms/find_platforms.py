@@ -68,7 +68,7 @@ def get_platform_center(platform, params):
 
 def get_nearest_platform(rat_locx, rat_locy, hcoord, vcoord):
     platform = get_platform_number(rat_locx, rat_locy, hcoord, vcoord)
-    if platform != -1:
+    if not np.isnan(platform):
         return platform
     else:
         min_dist = 10**5

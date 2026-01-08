@@ -37,6 +37,9 @@ def get_sig_cells(spike_train_this_epoch, hd_rad,epoch_start_frame, epoch_end_fr
     max_radians = []
     val = 0
     
+    range_min = np.int32(epoch_start_frame)
+    range_max = np.int32(epoch_end_frame)
+    range_size = range_max - range_min 
     for shift_idx in range(num_shifts):
         # Get random shift value
         random_shift = random.randint(shift_min, shift_max)
@@ -44,13 +47,12 @@ def get_sig_cells(spike_train_this_epoch, hd_rad,epoch_start_frame, epoch_end_fr
         # Add or subtract the random_shift value from each element in the variable
         shifted_data = current_data + random_shift
 
-        range_min = np.int32(epoch_start_frame)
-        range_max = np.int32(epoch_end_frame)
-        range_size = range_max - range_min 
         
         # Ensure shifted_data stays within the range [range_min, range_max]
         shifted_data = np.mod(shifted_data - range_min, range_size) + range_min
 
+        if np.nanmax(shifted_data) > range_max or np.nanmin(shifted_data) < range_min:
+            breakpoint()
         # Calculate angles_degrees and MRL
         angles_radians= hd_rad[shifted_data]
         mask = ~np.isnan(angles_radians)
@@ -79,7 +81,7 @@ def get_sig_cells(spike_train_this_epoch, hd_rad,epoch_start_frame, epoch_end_fr
 
         ax.set_title("Polar plot of max_radians = angles_radians")
         plt.show()
-    return perc_95_val, perc_99_val, MRL_values, shift_value
+    return perc_95_val, perc_99_val, MRL_values
 
 
 def resultant_vector_length(alpha, w=None, d=None, axis=None,

@@ -30,7 +30,7 @@ def get_trial_length(trials_length, total_length_s, tr, frame_rate):
     """ Get the trial length in frames and the total trials length in seconds"""
     trials_length_tr = trials_length[trials_length["trialnumber"] == tr] # row for this trial
     length_s = trials_length_tr.iloc[0,2] # Length is in third column
-    length_fr= np.int32(length_s * frame_rate)
+    length_fr=np.round( length_s * frame_rate).astype(np.int32)
     total_length_s += length_s 
     return length_fr, total_length_s
 
@@ -44,8 +44,11 @@ def get_df_trial(folder_path, tr, length_fr, method):
         raise Exception(f"Path to XY data for trial {tr} not found")
     
     df_tr = pd.read_csv(input_path)
+
     if len(df_tr) > length_fr:
-        raise ValueError(f"Positional data for trial {tr} is longer than recording data. Fix error.")
+        df_tr = df_tr.iloc[:length_fr].copy() # This is done for when video is longer than neural recording
+        print(f"Cropping df_tr for trial {tr}")
+        #raise ValueError(f"Positional data for trial {tr} is longer than recording data. Fix error.")
     
     return df_tr
 
@@ -76,7 +79,7 @@ def check_difference_df(df, total_length_s,  frame_rate):
         raise AssertionError("Difference between concat df length and total trial length is greater than 2 seconds. Verify where error occurs")
     
 def combine_pos_csvs(derivatives_base, trials_to_include, frame_rate= 25):
-    """
+    r"""g
     Combines all data from XY_HD_t{tr}.csv (for tr in trials_to_include) into one csv called HD_XY_alltrials.csv
     and saves it in the same folder as the XY_HD_t{tr}.csvss
 
@@ -115,7 +118,7 @@ def combine_pos_csvs(derivatives_base, trials_to_include, frame_rate= 25):
     for tr in trials_to_include:
         # Getting length for this trial in frames
         length_fr, total_length_s = get_trial_length(trials_length, total_length_s, tr, frame_rate)
-        
+
         # Df head/ears
         df_tr = get_df_trial(folder_path, tr, length_fr, method = "ears") # load df for this trial (df_tr)
         padding = get_padding(df_tr, length_fr) # get padding
@@ -125,18 +128,19 @@ def combine_pos_csvs(derivatives_base, trials_to_include, frame_rate= 25):
         df_tr_center = get_df_trial(folder_path, tr, length_fr, method = "center")
         padding_cr = get_padding(df_tr_center, length_fr)
         df_center = pd.concat([df_center, df_tr_center, padding_cr])
-        
+
         # Trouble shooting
         if len(padding) != len(padding_cr):
             raise ValueError("len(padding) != len(padding_cr). verify files are the same length")
 
+    #  Saves df to folder_path/XY_HD_alltrials.csv (or _center.csv if method == center)
     save_df(df, folder_path, method = "ears")
-    save_df(df, folder_path, method = "center")
+    save_df(df_center, folder_path, method = "center")
 
     # Verifies whether length of df matches the total length of the trial
     check_difference_df(df, total_length_s, frame_rate)
 
 if __name__ == "__main__":
-    trials_to_include = np.arange(1,8)
-    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
+    trials_to_include = np.arange(1,14)
+    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-02_date-11092025\all_trials"
     combine_pos_csvs(derivatives_base, trials_to_include)

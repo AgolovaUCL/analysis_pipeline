@@ -4,7 +4,7 @@ import glob
 import pandas as pd
 import numpy as np
 import json
-
+from utilities.restrict_spiketrain_specialbehav import restrict_spiketrain_specialbehav
 def append_alltrials(rawsession_folder):
     """ 
     Takes the alltrials csv and creates a new csv only with the rows of the trial date
@@ -35,6 +35,115 @@ def append_alltrials(rawsession_folder):
     output_path = os.path.join(rawsession_folder,"behaviour", "alltrials_trialday.csv")
     df.to_csv(output_path, index=False)
     print(f"Created {output_path}")
+
+def get_pos_data(derivatives_base, rel_dir_occ):
+    """ Get positional data"""
+    # Loading xy data
+    pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD',
+                                 'XY_HD_w_platforms.csv')
+    pos_data = pd.read_csv(pos_data_path)
+
+    if np.nanmax(pos_data['hd']) > 2 * np.pi + 0.1:  # Check if angles are in radians
+        pos_data['hd'] = np.deg2rad(pos_data['hd'])
+
+    pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD',
+                                 'XY_HD_goal0_trials.csv')
+    try:
+        pos_data_g0 = pd.read_csv(pos_data_path)
+
+        if np.nanmax(pos_data_g0['hd']) > 2 * np.pi + 0.1:  # Check if angles are in radians
+            pos_data_g0['hd'] = np.deg2rad(pos_data_g0['hd'])
+    except:
+        pos_data_g0 = None
+        print("No data found for g0. Returning None")
+
+    pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD',
+                                 'XY_HD_goal1_trials.csv')
+    pos_data_g1 = pd.read_csv(pos_data_path)
+
+    if np.nanmax(pos_data_g1['hd']) > 2 * np.pi + 0.1:  # Check if angles are in radians
+        pos_data_g1['hd'] = np.deg2rad(pos_data_g1['hd'])
+
+    pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD',
+                                 'XY_HD_goal2_trials.csv')
+    pos_data_g2 = pd.read_csv(pos_data_path)
+
+    if np.nanmax(pos_data_g2['hd']) > 2 * np.pi + 0.1:  # Check if angles are in radians
+        pos_data_g2['hd'] = np.deg2rad(pos_data_g2['hd'])
+
+    # Getting the positional data we'll use for the rel_dir_occ
+    if rel_dir_occ == 'all trials':
+        name = 'XY_HD_w_platforms.csv'
+    elif rel_dir_occ == 'intervals':
+        name = 'XY_HD_allintervals_w_platforms.csv'
+    pos_data_reldir_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', name)
+    pos_data_reldir = pd.read_csv(pos_data_reldir_path)
+
+    if np.nanmax(pos_data_reldir['hd']) > 2 * np.pi + 0.1:  # Check if angles are in radians
+        pos_data_reldir['hd'] = np.deg2rad(pos_data_reldir['hd'])
+    return pos_data, pos_data_g0, pos_data_g1, pos_data_g2, pos_data_reldir
+
+
+def get_spike_train(sorting, unit_id, pos_data, rawsession_folder, g, frame_rate=25, sample_rate=30000):
+    """ Obtains the spike train and restricts it to the goal"""
+    spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)
+    spike_train_secs = spike_train_unscaled / sample_rate  # This is in seconds now
+    # Restrict spiketrain to goal
+    if g == 'all':
+        spike_train_secs_g = spike_train_secs
+    else:
+        spike_train_secs_g = restrict_spiketrain_specialbehav(spike_train_secs, rawsession_folder, goal=g)
+    # Now let spiketrain be in frame_rate
+    spike_train = np.round(spike_train_secs_g * frame_rate)
+    spike_train = [np.int32(el) for el in spike_train if el < len(pos_data)]
+    return spike_train
+
+def get_sink_positions_platforms(derivatives_base):
+    """ Gets sink position for the 127 platform sinks"""
+    path = os.path.join(derivatives_base, 'analysis', 'maze_overlay', 'maze_overlay_params_consinks.json')
+    with open(path) as f:
+        data = json.load(f)
+    hcoord = data['hcoord_tr']
+    vcoord = data['vcoord_tr']
+    sink_positions = [[hcoord[s], vcoord[s]] for s in range(len(hcoord))]
+    return sink_positions
+
+def translate_positions():
+    """ We use an overlay of 127 consink positions, whilst there's 61 platforms. So platform 1-61 doesn't map to the consink position. This is an array that gives the rigth platform numbers"""
+
+    arr1 = np.arange(18,23).tolist() #corresponds to platform 1 -5
+    arr2 = np.arange(27,33).tolist() # 6-11, etc
+    arr3 = np.arange(37,44).tolist()
+    arr4 = np.arange(48,56).tolist()
+    arr5 = np.arange(60,69).tolist()
+    arr6 = np.arange(73,81).tolist()
+    arr7 = np.arange(85,92).tolist()
+    arr8 = np.arange(96,102).tolist()
+    arr9 = np.arange(106,111).tolist()
+    platforms_trans = arr1 + arr2 + arr3 + arr4 + arr5 + arr6 + arr7 + arr8 + arr9
+    platforms_trans = np.array(platforms_trans)
+
+    if len(platforms_trans) !=  61:
+        print(f"length platforms_trans = {len(platforms_trans)}")
+        raise ValueError("Platforms trans should have length 61 ")
+
+    return platforms_trans
+def verify_allnans(spike_train, pos_data):
+    """ Verifies that not all values are nan values"""
+    x_org = pos_data.iloc[:, 0].to_numpy()
+    hd_org = pos_data.iloc[:, 2].to_numpy()
+
+    # spike_train = [el for el in spike_train if el < len(x_org)]  # Ensure spike train is within bounds of x and y
+    # Finding spike times for this unit
+    x = x_org[spike_train]
+    hd = hd_org[spike_train]
+
+    mask = np.isnan(x) | np.isnan(hd)
+    false_vals = np.where(mask == False)[0]
+    if len(false_vals) < 2:
+        return True
+    else:
+        return False
 
 def get_goal_numbers(derivatives_base):
     """
@@ -83,6 +192,13 @@ def get_coords(derivatives_base):
     vcoord_tr= params["vcoord_tr"]
     return hcoord_tr, vcoord_tr
 
+def get_coords_127sinks(derivatives_base):
+    params_path =  os.path.join(derivatives_base, "analysis", "maze_overlay", "maze_overlay_params_consinks.json")
+    with open(params_path) as f:
+        params= json.load(f)
+    hcoord_tr = params["hcoord_tr"]
+    vcoord_tr= params["vcoord_tr"]
+    return hcoord_tr, vcoord_tr
 
 def get_goal_coordinates(derivatives_base, rawsession_folder):
     """
@@ -107,6 +223,24 @@ def get_limits_from_json(derivatives_base):
         limits = json.load(json_data)
         json_data.close()
     return limits["x_min"], limits["x_max"], limits["y_min"], limits["y_max"]
+
+def get_unit_ids(derivatives_base, unit_ids, unit_type):
+    # Getting unit IDs depending on type
+    if unit_type == 'good':
+        good_units_path = os.path.join(derivatives_base, "ephys", "concat_run", "sorting", "sorter_output",
+                                       "cluster_group.tsv")
+        good_units_df = pd.read_csv(good_units_path, sep='\t')
+        unit_ids = good_units_df[good_units_df['group'] == 'good']['cluster_id'].values
+        print("Using all good units")
+        # Loading pyramidal units
+    elif unit_type == 'pyramidal':
+        pyramidal_units_path = os.path.join(derivatives_base, "analysis", "cell_characteristics", "unit_features",
+                                            "all_units_overview", "pyramidal_units_2D.csv")
+        print("Getting pyramidal units 2D")
+        pyramidal_units_df = pd.read_csv(pyramidal_units_path)
+        pyramidal_units = pyramidal_units_df['unit_ids'].values
+        unit_ids = pyramidal_units
+    return unit_ids
 
 if __name__ == "__main__":
     rawsession_folder = r"D:\Spatiotemporal_task\rawdata\sub-003_id_2V\ses-02_date-05092025"

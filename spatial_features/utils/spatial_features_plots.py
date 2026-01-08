@@ -1,17 +1,5 @@
 import numpy as np
-import os
-import glob
 import pandas as pd
-import spikeinterface.extractors as se
-import matplotlib.pyplot as plt
-from tqdm import tqdm
-from spatial_features.spatial_functions import get_ratemaps
-from spatial_features.get_sig_cells import get_sig_cells
-import json
-from typing import Literal
-import warnings
-from astropy.stats import circmean
-import astropy.convolution as cnv
 
 def plot_rmap(rmap, xmin, xmax, ymin, ymax, x_edges, y_edges, outline_x, outline_y, ax, fig, title = None):
     """ Plots ratemap"""

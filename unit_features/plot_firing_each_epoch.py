@@ -149,7 +149,7 @@ def plot_firing_each_epoch(derivatives_base, trials_to_include, unit_type = "all
     rawsession_folder = os.path.dirname(rawsession_folder)
     
     # Load data files
-    kilosort_output_path = os.path.join(derivatives_base,  "concat_run","sorting", "sorter_output" )
+    kilosort_output_path = os.path.join(derivatives_base,"ephys",  "concat_run","sorting", "sorter_output" )
     sorting = se.read_kilosort(
         folder_path = kilosort_output_path
     )
@@ -167,6 +167,7 @@ def plot_firing_each_epoch(derivatives_base, trials_to_include, unit_type = "all
     n_rows = np.ceil(n_trials/n_cols).astype(int)
     trial_dur_so_far = 0
 
+    print(f"Plotting firing for each epoch. Saving to {output_dir}")
     for unit_id in tqdm(unit_ids):
         # Getting spiketrian for unit
         spike_train_unscaled = sorting.get_unit_spike_train(unit_id=unit_id)

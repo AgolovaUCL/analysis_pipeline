@@ -5,12 +5,17 @@ import glob
 import pandas as pd
 
 
-def make_epoch_times_csv(rawsession_folder, trials_to_include):
+def make_epoch_times_csv(derivatives_base, trials_to_include):
+    """ Creates epoch_times.csv in rawsession_folder/task_metadata
+    epochs are taken from behaviour csv/excel file"""
+        # Loading rawsession folder
+    rawsession_folder = derivatives_base.replace(r"\derivatives", r"\rawdata")
+    rawsession_folder = os.path.dirname(rawsession_folder)
     
     epoch_times_path = os.path.join(rawsession_folder, 'task_metadata', 'epoch_times.csv')
 
     if os.path.exists(epoch_times_path):
-        pass
+        return 1
     else:
         csv_path = glob.glob(os.path.join(rawsession_folder, 'task_metadata', 'behaviour*.csv'))
         if len(csv_path) > 0:
@@ -22,7 +27,7 @@ def make_epoch_times_csv(rawsession_folder, trials_to_include):
             else:
                 raise FileNotFoundError('No behaviour CSV or Excel file found in the specified folder.')
 
-    
+
     epoch_times= epoch_times_allcols.iloc[:, [10, 12, 14, 16, 18]]
     epoch_times.columns = ['epoch 1 end', 'epoch 2 start', 'epoch 2 end', 'epoch 3 start', 'epoch 3 end']
     epoch_times.insert(0, "epoch 1 start", np.zeros(len(epoch_times)))

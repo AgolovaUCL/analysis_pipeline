@@ -71,7 +71,7 @@ def getRelDirDist(pos, hd, xAxis, yAxis, angleEdges, normalize = True):
 
             distTemp, _ = np.histogram(dirRel2bin, angleEdges)
             if normalize:
-                distTemp = distTemp /distTemp.sum()
+                distTemp = distTemp / distTemp.sum()
             relDirDist[i, j, :] = distTemp # format: x, y, dist
     return relDirDist
         

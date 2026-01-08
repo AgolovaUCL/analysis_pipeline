@@ -111,6 +111,6 @@ def get_length_all_trials(rawsession_folder, trials_to_include):
     print(f"Saved to {output_path}")
 
 if __name__ == "__main__":
-    rawsession_folder = r"\\ceph-gw02.hpc.swc.ucl.ac.uk\okeefe\Eylon\Data\Honeycomb_Maze_Task\rawdata\sub-003_id-2F\ses-01_date-17092025"
-    trials_to_include = np.arange(1,7)
+    rawsession_folder = r"D:\Spatiotemporal_task\rawdata\sub-002_id-1U\ses-01_date-02072025"
+    trials_to_include = np.arange(1,9)
     get_length_all_trials(rawsession_folder, trials_to_include)

@@ -6,11 +6,12 @@ import matplotlib.pyplot as plt
 import os
 from spatial_features.utils.spatial_features_plots import plot_roseplots, add_arm_overlay_roseplot
 
+
 def get_MRL_data(derivatives_base, path_to_df = None):
     """ Gets the path for the MRL data used, either the path is provided or user provides it"""
     # df path
     if path_to_df is not None:
-        df_path = pd.read_csv(path_to_df)
+        df_all = pd.read_csv(path_to_df)
         print(f"Making roseplot from data from {os.path.basename(path_to_df)}")
     else:
         df_path_base = os.path.join(derivatives_base, 'analysis', 'cell_characteristics', 'spatial_features', 'spatial_data')
@@ -23,8 +24,8 @@ def get_MRL_data(derivatives_base, path_to_df = None):
             user_input = np.int32(user_input)
             df_path = df_options[user_input - 1]
             print(f"Making roseplot from data from {os.path.basename(df_options[user_input - 1])}")
+        df_all = pd.read_csv(df_path)
             
-    df_all = pd.read_csv(df_path)
     return df_all
 
 def get_directories(derivatives_base, deg):
@@ -82,18 +83,17 @@ def make_roseplots(derivatives_base, trials_to_include, deg: int, path_to_df = N
 
     # Dataframe with raised arms
     behaviour_df, output_path_plot = get_directories(derivatives_base, deg)
-    
+
     # Direction of arms and their angles
     arms_dir = ["N", "NW", "SW", "S", "SE", "NE"]
     arms_angles_start = [30, 90, 150, 210, 270, 330]
- 
     # Plot: 3 columns for epochs, final column for correct/incorrect
     fig, axs = plt.subplots(len(trials_to_include), 4, figsize = [3*4, 4*len(trials_to_include)], subplot_kw = {'projection': 'polar'})
     num_bins = 24
 
-
     for tr in trials_to_include:
         for e in np.arange(1,4):
+            
             num_spikes_arr = []
             mean_dir_arr = []
 
@@ -125,7 +125,7 @@ def make_roseplots(derivatives_base, trials_to_include, deg: int, path_to_df = N
     print(f"Saved figure to {output_path_plot}")
 
 if __name__ == "__main__":
-    derivatives_base = r"D:\Spatiotemporal_task\derivatives\sub-003_id_2V\ses-01_date-30072025\all_trials"
-    rawsession_folder = r"D:\Spatiotemporal_task\rawdata\sub-003_id_2V\ses-01_date-30072025"
-    trials_to_include = np.arange(1, 11)
-    make_roseplots(derivatives_base, rawsession_folder, trials_to_include, 15)
+    trials_to_include = np.arange(1,6)
+    print(trials_to_include)
+    derivatives_base = r"S:\Spatiotemporal_task\derivatives\sub-002_id-1U\ses-05_date-18072025\rerun_1212"
+    make_roseplots(derivatives_base, trials_to_include, 15)

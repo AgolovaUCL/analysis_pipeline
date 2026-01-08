@@ -78,7 +78,7 @@ def make_new_element(unit_id, tr, e, MRL, mu, percentiles_95_value, percentiles_
         new_element['significant'] = 'sig'   
     return new_element
 
-def make_spatiotemp_plots(derivatives_base, trials_to_include, unit_type = "all", frame_rate = 25, sample_rate = 30000, num_bins = 24):
+def make_spatiotemp_plots(derivatives_base, trials_to_include, unit_type = "all", make_plots = True, frame_rate = 25, sample_rate = 30000, num_bins = 24):
     """
     Makes the plots for the spatiotemporal experiments. Saves figures into analysis/cell_characteristics/spatial_features/spatial_plots/...
     with the following layout:
@@ -101,7 +101,7 @@ def make_spatiotemp_plots(derivatives_base, trials_to_include, unit_type = "all"
     pos_data_dir, output_folder_data, output_folder_plot, epoch_times, df_unit_metrics, trials_length = load_directories(derivatives_base)
     
     # Load kilosort files
-    kilosort_output_path = os.path.join(derivatives_base,  "concat_run","sorting", "sorter_output" )
+    kilosort_output_path = os.path.join(derivatives_base,  "ephys", "concat_run","sorting", "sorter_output" )
     sorting = se.read_kilosort(
         folder_path = kilosort_output_path
     )
@@ -128,15 +128,16 @@ def make_spatiotemp_plots(derivatives_base, trials_to_include, unit_type = "all"
 
         # Loading data
         x_pos, _, _, _ = get_posdata(derivatives_base)
-        spike_train = get_spike_train_frames(sorting, unit_id, x_pos, sample_rate, frame_rate)
+        spike_train = get_spike_train_frames(sorting, unit_id, x_pos, sample_rate, frame_rate) # spkt train in frames
 
         # Unit information
         unit_firing_rate, unit_label = get_unit_info(df_unit_metrics, unit_id)
 
         # Creating figure
-        fig, axs = plt.subplots(n_rows, n_cols, figsize = [3*n_cols, 3*n_rows])
-        axs = axs.flatten()
-        fig.suptitle(f"Unit {unit_id}. Label: {unit_label}. Firing rate = {unit_firing_rate:.1f} Hz", fontsize = 18)
+        if make_plots:
+            fig, axs = plt.subplots(n_rows, n_cols, figsize = [3*n_cols, 3*n_rows])
+            axs = axs.flatten()
+            fig.suptitle(f"Unit {unit_id}. Label: {unit_label}. Firing rate = {unit_firing_rate:.1f} Hz", fontsize = 18)
         counter = 0 # counts which axs we're on
 
         # Duration of trial (starts at 0)
@@ -156,8 +157,9 @@ def make_spatiotemp_plots(derivatives_base, trials_to_include, unit_type = "all"
 
             # Make plots
             # Obtaining ratemap data
-            rmap, x_edges, y_edges = get_ratemaps(spike_train_this_trial, x, y, 3, binsize=25, stddev=5)
-            plot_rmap(rmap,xmin, xmax, ymin, ymax, x_edges, y_edges, outline_x = None, outline_y = None, ax = axs[counter], fig)
+            if make_plots:
+                rmap, x_edges, y_edges = get_ratemaps(spike_train_this_trial, x, y, 3, binsize=25, stddev=5)
+                plot_rmap(rmap,xmin, xmax, ymin, ymax, x_edges, y_edges, outline_x = None, outline_y = None, ax = axs[counter], fig = fig)
             counter += 1
             trial_dur_so_far += trial_length
 
@@ -165,20 +167,21 @@ def make_spatiotemp_plots(derivatives_base, trials_to_include, unit_type = "all"
             for e in range(1, n_epochs + 1):
                 # Obtain epoch start and end times
                 epoch_start = trial_row.iloc[0, 2*e-1]
+                if e > 1:
+                    epoch_start += 7  # adding 7 second offset for epochs 2 and 3
                 epoch_end = trial_row.iloc[0, 2*e]
                 spike_train_this_epoch = get_spikes_epoch(spike_train_this_trial, epoch_start, epoch_end, frame_rate)
                 
-                
                 # Spike plot
-                plot_spikes_spatiotemp(spike_train_this_epoch, x, y, epoch_end, frame_rate, xmin, xmax, ymin, ymax, ax = axs[counter], title = None)
+                if make_plots:
+                    plot_spikes_spatiotemp(spike_train_this_epoch, x, y, epoch_end, frame_rate, xmin, xmax, ymin, ymax, ax = axs[counter], title = None)
                 counter += 1
 
                 # HD calculations
                 if len(spike_train_this_epoch) > 0:
-                    # Obtaining hd for this epoch and calculating how much the animal sampled in each bin
                     hd_this_epoch = hd_rad[np.int32(epoch_start*frame_rate):np.int32(epoch_end*frame_rate)]
                     occupancy_time = get_occupancy_time(hd_this_epoch, frame_rate, num_bins = num_bins)
-                    direction_firing_rate, bin_centers = get_directional_firingrate(hd_rad, spike_train_this_epoch, num_bins, occupancy_time)
+                    direction_firing_rate, bin_centers = get_directional_firingrate(hd_rad,  spike_train_this_epoch, num_bins, occupancy_time)
                     
                     # Getting significance
                     MRL = resultant_vector_length(bin_centers, w = direction_firing_rate)
@@ -191,16 +194,19 @@ def make_spatiotemp_plots(derivatives_base, trials_to_include, unit_type = "all"
                     directional_data_all_units.loc[len(directional_data_all_units)] = new_element
                 
                 # Plot
-                fig.delaxes(axs[counter])
-                axs[counter] = fig.add_subplot(n_rows, n_cols, counter+1, polar=True)
+                if make_plots:
+                    fig.delaxes(axs[counter])
+                    axs[counter] = fig.add_subplot(n_rows, n_cols, counter+1, polar=True)
 
-                plot_directional_firingrate(bin_centers, direction_firing_rate, ax = axs[counter], title = f"n = {len(spike_train_this_epoch)}", MRL = MRL, percentiles_95_value = percentiles_95_value)
+                    if len(spike_train_this_epoch) > 0:
+                        plot_directional_firingrate(bin_centers, direction_firing_rate, ax = axs[counter], title = f"n = {len(spike_train_this_epoch)}", MRL = MRL, percentiles_95_value = percentiles_95_value)
                 counter += 1 
 
         # Saving data
-        output_path = os.path.join(output_folder_plot, f"unit_{unit_id}_spatiotemp.png")
-        plt.savefig(output_path)
-        plt.close(fig)
+        if make_plots:
+            output_path = os.path.join(output_folder_plot, f"unit_{unit_id}_spatiotemp.png")
+            plt.savefig(output_path)
+            plt.close(fig)
 
     # Saving directional data
     output_path = os.path.join(output_folder_data, f"directional_tuning_{np.int32(360/num_bins)}_degrees.csv")

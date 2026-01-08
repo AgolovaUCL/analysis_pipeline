@@ -180,7 +180,7 @@ def find_filepath(folder_directory, tr):
         file_path = matches[0]
     return file_path
 
-def run_movement(derivatives_base, trials_to_include, show_plots = False,  frame_rate = 25):
+def run_movement(derivatives_base, trials_to_include, conf_threshold = 0.6, show_plots = False,  frame_rate = 25):
     """
     Processing the raw xy data as obtained from running inference.
     Creates:
@@ -228,7 +228,7 @@ def run_movement(derivatives_base, trials_to_include, show_plots = False,  frame
 
 
         # ---------- Filtering by confidence ----------
-        ds, g = filter_ds_by_confidence(ds, threshold = 0.6)
+        ds, g = filter_ds_by_confidence(ds, threshold = conf_threshold)
 
         plot_and_save_g(g, movement_data_folder, f"t{tr}_filtered_by_confidence.png", "Raw Position")
 

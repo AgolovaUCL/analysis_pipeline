@@ -60,10 +60,10 @@ def plot_rmap_interactive(derivatives_base, unit_id,  frame_rate = 25, sample_ra
         limits = json.load(json_data)
         json_data.close()
     
-    xmin = limits['xmin']
-    xmax = limits['xmax']
-    ymin = limits['ymin']
-    ymax = limits['ymax']
+    xmin = limits['x_min']
+    xmax = limits['x_max']
+    ymin = limits['y_min']
+    ymax = limits['y_max']
     
     # ---- Load maze outline coordinates ----
     outline_path = os.path.join(derivatives_base, "analysis", "maze_overlay", "maze_outline_coords.json")
@@ -92,7 +92,7 @@ def plot_rmap_interactive(derivatives_base, unit_id,  frame_rate = 25, sample_ra
     # Obtaining hd for this trial how much the animal sampled in each bin
     num_bins = 24
     hd_filtered = hd[~np.isnan(hd)]
-    hd_filtered= np.deg2rad(hd_filtered)
+    #hd_filtered= np.deg2rad(hd_filtered)
     occupancy_counts, _ = np.histogram(hd_filtered, bins=num_bins, range = [-np.pi, np.pi])
     occupancy_time = occupancy_counts / frame_rate 
 
@@ -175,8 +175,10 @@ def plot_rmap_interactive(derivatives_base, unit_id,  frame_rate = 25, sample_ra
         hd_spikes = hd_spikes[valid]
         is_filt = is_filt[valid]  
 
-        u = np.cos(np.deg2rad(hd_spikes))
-        v = np.sin(np.deg2rad(hd_spikes))
+        #u = np.cos(np.deg2rad(hd_spikes))
+        #v = np.sin(np.deg2rad(hd_spikes))
+        u = np.cos(hd_spikes)
+        v = np.sin(hd_spikes)
 
         # Assign colors efficiently
         colors = np.where(is_filt, 'blue', 'red')
@@ -195,7 +197,8 @@ def plot_rmap_interactive(derivatives_base, unit_id,  frame_rate = 25, sample_ra
         
         spikes_hd = hd[spike_train_filt]
         spikes_hd = spikes_hd[~np.isnan(spikes_hd)]
-        spikes_hd_rad = np.deg2rad(spikes_hd)
+        #spikes_hd_rad = np.deg2rad(spikes_hd)
+        spikes_hd_rad = spikes_hd
         counts, bin_edges = np.histogram(spikes_hd_rad, bins=num_bins,range = [-np.pi, np.pi] )
 
         

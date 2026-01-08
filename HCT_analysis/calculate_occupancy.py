@@ -303,8 +303,69 @@ def get_relative_direction_occupancy_by_position(pos_data, limits, n_dir_bins = 
                     # add the directional occupancy to positional_occupancy_temp
                     reldir_occ_by_pos[j, i, j2, i2, :] = directional_occupancy
 
-    return reldir_occ_by_pos, bins, candidate_sinks    
+    return reldir_occ_by_pos, bins, candidate_sinks
 
+
+def get_relative_direction_occupancy_by_position_platformbins(pos_data, sink_positions,  num_candidate_sinks= 127, n_dir_bins=12, frame_rate=25):
+    '''
+    output is a num sink(127), num platforms (61), n_bins array
+    STILL IMPLEMENT PLATFORMS TRANS.
+    '''
+
+    # create relative directional occupancy by position array
+
+    reldir_occ_by_pos = np.zeros((num_candidate_sinks, 61, n_dir_bins))
+
+    # get x and y data
+    x = pos_data.iloc[:, 0].to_numpy()
+    y = pos_data.iloc[:, 1].to_numpy()
+    hd = pos_data.iloc[:, 2].to_numpy()
+    platforms = pos_data['platform'].to_numpy()
+
+    # Remove nan values, otherwise binning gets funky
+    mask = np.isnan(hd) | np.isnan(x) | np.isnan(platforms)
+    x = x[~mask]
+    y = y[~mask]
+    hd = hd[~mask]
+    platforms = platforms[~mask]
+
+
+    # Going over positional bins
+    for p in range(61):
+        # get the indices where x_bin == i and y_bin == j
+        indices = np.where(platforms == p + 1)[0]
+        try:
+            # Get hd and positions for these frames
+            x_positions = x[indices]
+            y_positions = y[indices]
+            hd_temp = hd[indices]
+
+        except:
+            print(p)
+            breakpoint()
+        positions = {'x': x_positions, 'y': y_positions}
+
+
+
+        for s in range(num_candidate_sinks):
+            # get directions to sink
+            platform_loc = sink_positions[s]
+            directions = get_directions_to_position([platform_loc[0], platform_loc[1]], positions)
+
+            # get the relative direction
+            relative_direction = get_relative_directions_to_position(directions, hd_temp)
+            durations_temp = np.ones(
+                len(relative_direction)) / frame_rate  # NOTE: Jake's code used durations data from DLC.
+            # We don't use that, each frame is equally long, so we replace all durations with 1/frame_rate
+
+            # get the directional occupancy for these indices
+            directional_occupancy, direction_bins = \
+                get_directional_occupancy(relative_direction, durations_temp, n_bins=12)
+
+            # add the directional occupancy to positional_occupancy_temp
+            reldir_occ_by_pos[s, p, :] = directional_occupancy
+
+    return reldir_occ_by_pos
 
 def get_xy_bins(limits, n_bins=100):
 

@@ -148,10 +148,14 @@ def overlay_maze_image(derivatives_base, method):
     # Parameters that control the overlay
     radius = 4
     hex_side_length = 88 # Length of the side of the hexagon
+    #hex_side_length = 89
     theta = np.radians(305)  # Rotation angle in radians
+    #theta = np.radians(30)
     desired_x, desired_y = 1320, 950 # center of 31st platform
+    #desired_x, desired_y = 810, 1000
     coord = hex_grid(radius) # coordinates
     rotation = 25
+    #rotation = 50
     
     # Calculate initial Cartesian coordinates
     hcoord2, vcoord2 = calculate_cartesian_coords(coord, hex_side_length)
@@ -172,9 +176,6 @@ def overlay_maze_image(derivatives_base, method):
         print('Spatial processing pipeline will assign platforms to positional csvs.\n ')
     return good_overlay, img
 
-
-
 if __name__ == "__main__":
-    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
-    rawsession_folder = r"S:\Honeycomb_maze_task\rawdata\sub-002_id-1R\ses-01_date-10092025"
-    overlay_maze_image(derivatives_base, rawsession_folder)
+    derivatives_base =  r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-02_date-11092025\all_trials"
+    overlay_maze_image(derivatives_base, "video")

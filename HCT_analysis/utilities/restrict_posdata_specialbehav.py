@@ -4,20 +4,21 @@ import pandas as pd
 from matplotlib.path import Path
 import matplotlib.pyplot as plt
 import json
-from utilities.add_platforms_any_df import add_platforms_to_csv
+#from utilities.add_platforms_any_df import add_platforms_to_csv
 
-def restrict_posdata_specialbehav(derivatives_base, rawsession_folder,  frame_rate = 25):
+def restrict_posdata_specialbehav(derivatives_base,   frame_rate = 25):
     """
     Restricts the pos_data to the intervals of the goal.
     
     Args:
-        pos_data (DataFrame): position data
-        rawsession_folder (str): path to the raw session folder
-        goal (int): goal number (0, 1 or 2): NOTE, 0 here stands for rat going to g2 durin g1
+        derivatives_base: Path to derivatives folder
 
     Returns:
         DataFrame: restricted position data
     """
+    rawsession_folder = derivatives_base.replace(r"\derivatives", r"\rawdata")
+    rawsession_folder = os.path.dirname(rawsession_folder)
+
     pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'XY_HD_w_platforms.csv')
     pos_data = pd.read_csv(pos_data_path)
     
@@ -84,7 +85,6 @@ def restrict_posdata_specialbehav(derivatives_base, rawsession_folder,  frame_ra
         df_restricted_all = df_restricted_all.sort_values(by='frame').reset_index(drop=True)
 
     print("Adding platforms to interval df")
-    df_restricted_all = add_platforms_to_csv(df_restricted_all, derivatives_base)
     output_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'XY_HD_allintervals.csv')
     df_restricted_all.to_csv(output_path, index = False)
     
@@ -145,11 +145,9 @@ def restrict_posdata_specialbehav(derivatives_base, rawsession_folder,  frame_ra
 
     
 if __name__ == "__main__":
-    rawsession_folder = r"S:\Honeycomb_maze_task\rawdata\sub-002_id-1R\ses-01_date-10092025"
-    derivatives_base= r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-01_date-10092025\all_trials"
-    pos_data_path = os.path.join(derivatives_base, 'analysis', 'spatial_behav_data', 'XY_and_HD', 'XY_HD_w_platforms.csv')
-    pos_data = pd.read_csv(pos_data_path)
+    derivatives_base= r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-02_date-11092025\all_trials"
 
-    restrict_posdata_specialbehav(pos_data, derivatives_base, rawsession_folder)
+
+    restrict_posdata_specialbehav(derivatives_base)
     
         

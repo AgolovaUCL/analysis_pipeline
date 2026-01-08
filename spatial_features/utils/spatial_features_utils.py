@@ -5,13 +5,14 @@ import pandas as pd
 import spikeinterface.extractors as se
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from spatial_features.spatial_functions import get_ratemaps
-from spatial_features.get_sig_cells import get_sig_cells
 import json
 from typing import Literal
 import warnings
 from astropy.stats import circmean
 import astropy.convolution as cnv
+
+from spatial_features.spatial_functions import get_ratemaps
+from spatial_features.get_sig_cells import get_sig_cells
 
 def load_unit_ids(derivatives_base, unit_type, unit_ids):
     """ Returns unit_ids, the unit_ids that we will create rmaps for"""
@@ -68,12 +69,12 @@ def get_trial_length_info(epoch_times, trials_length,  tr):
     trial_length = trial_length_row.iloc[0, 2]
     return start_time, trial_length, trial_row
             
-def get_spikes_tr(spike_train, trial_dur_so_far, start_time, x, frame_rate):
+def get_spikes_tr(spike_train, trial_dur_so_far, start_time, x, frame_rate = 25):
     """ Restricts spiketrain to current trial"""
     spike_train_this_trial = np.copy(spike_train)
-    spike_train_this_trial =  [el for el in spike_train_this_trial if el > np.round(trial_dur_so_far+ start_time)] # filtering for current trial
-    spike_train_this_trial = [el - trial_dur_so_far for el in spike_train_this_trial]
-    spike_train_this_trial = [el for el in spike_train_this_trial if el < len(x)/frame_rate]
+    spike_train_this_trial =  [el for el in spike_train_this_trial if el > np.round(trial_dur_so_far+ start_time)*frame_rate] # filtering for current trial
+    spike_train_this_trial = [el - np.round(trial_dur_so_far*frame_rate) for el in spike_train_this_trial]
+    spike_train_this_trial = [el for el in spike_train_this_trial if el < len(x)]
     return spike_train_this_trial
 
 def get_spikes_epoch(spike_train_this_trial, epoch_start, epoch_end, frame_rate):
@@ -199,6 +200,9 @@ def get_ratemaps(spikes, x, y, n: int, binsize = 15, stddev = 5, frame_rate = 25
     # Removing values with very low occupancy (these sometimes have very large firing rate)
     occupancy_threshold = 0.4
     rmap[smoothed_pos < occupancy_threshold] = np.nan
+
+
+
     return rmap, x_edges, y_edges
 
 
@@ -251,7 +255,9 @@ def get_ratemaps_restrictedx(spikes, x, y, x_restr, y_restr,  n: int, binsize = 
     )
     
     # Removing values with very low occupancy (these sometimes have very large firing rate)
-    occupancy_threshold = 0.4
+    occupancy_threshold =0.4
     rmap[smoothed_pos < occupancy_threshold] = np.nan
+
+
     return rmap, x_edges, y_edges
 

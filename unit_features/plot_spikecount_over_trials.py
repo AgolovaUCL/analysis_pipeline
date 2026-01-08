@@ -103,7 +103,7 @@ def make_plot(spike_train, trial_starts, trial_ends, output_path, n_bins, unit_i
     plt.close()
 
 def plot_spikecount_over_trials(derivatives_base, unit_type: Literal['pyramidal', 'good', 'all'], trials_to_include, task, frame_rate = 25, sample_rate = 30000):
-    """For each unit, creates a plot of its spikecount throughout time.
+    r"""For each unit, creates a plot of its spikecount throughout time.
     Also indicates the trials
 
     Args:

@@ -144,5 +144,8 @@ def get_norm_hd_distr(spike_train, pos_data, hd_distr_allplats, num_bins = 12):
                       out=np.zeros_like(hd_p_distr, dtype=float),
                       where=hd_distr_allplats[p-1]!=0)
         norm_hd.append(hd_p_norm)
+
+
     return norm_hd
+
 

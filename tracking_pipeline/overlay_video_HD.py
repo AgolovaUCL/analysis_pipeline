@@ -7,7 +7,7 @@ import os
 import glob
 
 def get_dirs(derivatives_base):
-    """ Getting all the directories needed for funcition"""
+    """ Getting all the directories needed for function"""
     rawsession_folder = derivatives_base.replace(r"\derivatives", r"\rawdata")
     rawsession_folder = os.path.dirname(rawsession_folder)
     

@@ -5,16 +5,18 @@ import pandas as pd
 import spikeinterface.extractors as se
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from spatial_features.spatial_functions import get_ratemaps
-from spatial_features.get_sig_cells import get_sig_cells
-import json
 from typing import Literal
 import warnings
+
+from spatial_features.spatial_functions import get_ratemaps
+from spatial_features.get_sig_cells import get_sig_cells
 from astropy.stats import circmean
 from spatial_features.utils.spatial_features_utils import load_unit_ids, get_outline, get_limits, get_posdata, get_occupancy_time, get_ratemaps, get_spike_train_frames, get_directional_firingrate
 from spatial_features.utils.spatial_features_plots import plot_rmap, plot_occupancy, plot_directional_firingrate
 
-def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good', 'all'],  frame_rate = 25, sample_rate = 30000):
+
+
+def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good', 'all'],  frame_rate = 25, sample_rate = 30000, saveplots=True, show_plots= False):
     """ 
     Makes a plot for each unit with its ratemap (left) and directional firing rate (right)
 
@@ -60,7 +62,9 @@ def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good
         fig.suptitle(f"Unit {unit_id}", fontsize = 18)
 
         # ===== Plot ratemap ====
-        rmap, x_edges, y_edges = get_ratemaps(spike_train, x, y, 3, binsize=36, stddev=25)
+        rmap, x_edges, y_edges= get_ratemaps(spike_train, x, y, 3, binsize=36, stddev=25)
+
+
         plot_rmap(rmap, xmin, xmax, ymin, ymax, x_edges, y_edges, outline_x, outline_y, ax = axs[0], fig = fig, title = f"n = {len(spike_train)}")
 
         # ==== Plot occupancy ====
@@ -102,8 +106,12 @@ def plot_ratemaps_and_hd(derivatives_base, unit_type: Literal['pyramidal', 'good
             axs[2].legend(loc='upper right', bbox_to_anchor=(1.2, 1.1))
 
         output_path = os.path.join(output_folder, f"unit_{unit_id}_rm_hd.png")
-        plt.savefig(output_path)
-        plt.close(fig)
+        if saveplots:
+            plt.savefig(output_path)
+        if show_plots:
+            plt.show()
+        else:
+            plt.close(fig)
         
         if False:
             try:
@@ -178,8 +186,8 @@ def _complex_mean(alpha, w=None, axis=None, axial_correction=1):
             np.sum(w, axis=axis))       
 
 if __name__ == "__main__":
-    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-003_id-2F\ses-01_date-17092025\all_trials"
-    plot_ratemaps_and_hd(derivatives_base)
+    derivatives_base = r"S:\Honeycomb_maze_task\derivatives\sub-002_id-1R\ses-02_date-11092025\all_trials"
+    plot_ratemaps_and_hd(derivatives_base,unit_type = "good", saveplots=False, show_plots=True)
 
 
 
